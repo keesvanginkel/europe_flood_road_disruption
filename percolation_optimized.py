@@ -21,12 +21,13 @@ import copy
 import numpy as np
 
 # save path
-save_path = r"D:\COACCH_paper\data\output"
+country = 'albania'
+save_path = r"D:\COACCH_paper\data\output\{}".format(country)
 
 # import files
-G_nx = nx.read_gpickle(r"P:\osm_flood\network_analysis\albania\albania_graph.gpickle")
-pref_time = gpd.read_file(r"P:\osm_flood\network_analysis\albania\time_pref_routes.shp")
-all_aois = pickle.load(open(r"P:\osm_flood\network_analysis\albania\aois_albania.p", "rb"))
+G_nx = nx.read_gpickle(r"P:\osm_flood\network_analysis\{c}\{c}_graph.gpickle".format(c=country))
+pref_time = gpd.read_file(r"P:\osm_flood\network_analysis\{c}\time_pref_routes.shp".format(c=country))
+all_aois = pickle.load(open(r"P:\osm_flood\network_analysis\{c}\aois_{c}.p".format(c=country), "rb"))
 
 # parameters
 nr_reps = 100
