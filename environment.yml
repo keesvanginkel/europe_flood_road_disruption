@@ -3,17 +3,25 @@ channels:
   - conda-forge
   - defaults
 dependencies:
+  - abseil-cpp=20200225.2=ha925a31_2
   - affine=2.3.0=py_0
   - argon2-cffi=20.1.0=py38h294d835_2
+  - arrow-cpp=2.0.0=py38h647f3f1_6_cpu
   - async_generator=1.10=py_0
   - attrs=20.3.0=pyhd3deb0d_0
+  - aws-c-common=0.4.59=h8ffe710_1
+  - aws-c-event-stream=0.1.6=hb4e73fc_6
+  - aws-checksums=0.1.10=h6f0a1a5_0
+  - aws-sdk-cpp=1.8.70=he2782d2_1
   - backcall=0.2.0=pyh9f0ad1d_0
   - backports=1.0=py_2
   - backports.functools_lru_cache=1.6.1=py_0
   - bleach=3.2.1=pyh9f0ad1d_0
   - boost-cpp=1.74.0=h54f0996_1
+  - brotli=1.0.9=ha925a31_3
   - brotlipy=0.7.0=py38hab1e662_1001
   - bzip2=1.0.8=h8ffe710_4
+  - c-ares=1.17.1=h8ffe710_0
   - ca-certificates=2020.11.8=h5b45459_0
   - cairo=1.16.0=hd28d34b_1006
   - cartopy=0.18.0=py38h5ec0ca1_5
@@ -43,7 +51,10 @@ dependencies:
   - geos=3.8.1=he025d50_0
   - geotiff=1.6.0=h8884d1a_3
   - gettext=0.19.8.1=h1a89ca6_1005
+  - gflags=2.2.2=ha925a31_1004
   - glib=2.66.3=h0e60522_1
+  - glog=0.4.0=h0174b99_3
+  - grpc-cpp=1.33.2=h59b151f_1
   - hdf4=4.2.13=hf8e6fe8_1003
   - hdf5=1.10.6=nompi_h5268f04_1112
   - icu=67.1=h33f27b4_0
@@ -85,11 +96,14 @@ dependencies:
   - libnetcdf=4.7.4=nompi_h2ee746f_106
   - libpng=1.6.37=h1d00b33_2
   - libpq=12.3=hd9aa61d_2
+  - libprotobuf=3.13.0.1=h200bbdf_0
   - libsodium=1.0.18=h8d14728_1
   - libspatialindex=1.9.3=he025d50_3
   - libspatialite=5.0.0=hf693123_0
   - libssh2=1.9.0=hb06d900_5
+  - libthrift=0.13.0=hdfef310_6
   - libtiff=4.1.0=hc10be44_6
+  - libutf8proc=2.6.0=hcb41399_0
   - libwebp-base=1.1.0=h8ffe710_3
   - libxml2=2.9.10=h1006b36_2
   - llvm-meta=5.0.0=0
@@ -122,6 +136,7 @@ dependencies:
   - pandas=1.1.4=py38h4c96930_0
   - pandoc=2.11.2=h8ffe710_0
   - pandocfilters=1.4.2=py_1
+  - parquet-cpp=1.5.1=2
   - parso=0.7.1=pyh9f0ad1d_0
   - patsy=0.5.1=py_0
   - pcre=8.44=ha925a31_0
@@ -136,6 +151,7 @@ dependencies:
   - prometheus_client=0.9.0=pyhd3deb0d_0
   - prompt-toolkit=3.0.8=pyha770c72_0
   - prompt_toolkit=3.0.8=hd8ed1ab_0
+  - pyarrow=2.0.0=py38ha37a76c_6_cpu
   - pycairo=1.20.0=py38h7e31434_1
   - pycparser=2.20=pyh9f0ad1d_2
   - pygeos=0.8=py38h9764186_1
@@ -160,6 +176,7 @@ dependencies:
   - qtpy=1.9.0=py_0
   - rasterio=1.1.8=py38h5653988_0
   - rasterstats=0.14.0=py_0
+  - re2=2020.11.01=h0e60522_0
   - requests=2.25.0=pyhd3deb0d_0
   - rtree=0.9.4=py38h8b54edf_2
   - scipy=1.5.3=py38h5f893b4_0
@@ -170,6 +187,7 @@ dependencies:
   - shapely=1.7.1=py38hc96c142_1
   - simplejson=3.17.2=py38h1e8a9f7_1
   - six=1.15.0=pyh9f0ad1d_0
+  - snappy=1.1.8=ha925a31_3
   - snuggs=1.4.7=py_0
   - sqlite=3.33.0=he774522_1
   - statsmodels=0.12.1=py38h347fdf6_1
