@@ -23,16 +23,24 @@ import matplotlib.pyplot as plt
 from flow_model import create_graph
 import igraph as ig
 import rasterio
-from statistics import mean, mode
+from statistics import mode
+from shapely.geometry import box, mapping
 from shapely import wkt
+import xarray as xr
+import rioxarray
+import numpy as np
 from shapely.ops import transform
 
+# define in- and output folders
+input_folder = r"D:\COACCH_paper\data"
+output_folder = r"D:\COACCH_paper\data\output\{}"
+
 # Location of the JRC floodmaps
-floodmap_RP100_path = r"D:\COACCH_paper\data\JRC_floodmap_local\floodmap_EFAS_RP100_3857.tif"
-aoimap_RP100_path = r"D:\COACCH_paper\data\JRC_floodmap_local\AreaOfInfl_EFAS_RP100y_3857.tif"
+floodmap_RP100_path = os.path.join(input_folder, r"JRC_floodmap_local\floodmap_EFAS_RP100_3857.tif")
+aoimap_RP100_path = os.path.join(input_folder, r"JRC_floodmap_local\AreaOfInfl_EFAS_RP100y_3857.tif")
 
 # Location of graphs of all countries in Europe, saved in *.feather format
-networks_europe_path = r'D:\COACCH_paper\data\networks_europe_elco_koks'
+networks_europe_path = os.path.join(input_folder, 'networks_europe_elco_koks')
 network_files = [os.path.join(networks_europe_path, f) for f in os.listdir(networks_europe_path)]
 
 # Get the country codes from the *.feather files (networks) and see with a country code
@@ -43,15 +51,15 @@ print(len(country_codes), 'countries:\n' + '\n'.join([translate_cntr_codes['coun
 
 
 i = 0  # iterate over the graphs
-current_country = translate_cntr_codes['country'][network_files[i].split('-')[0].split('\\')[-1]]
-print(current_country)
+current_country = translate_cntr_codes['country'][network_files[i].split('-')[0].split('\\')[-1]].lower()
+print("Current iteration is for:", current_country)
+
+# read the network files from Elco Koks
 network = pd.read_feather(network_files[i])
+
+# create a geometry column with shapely geometries
 network['geoms'] = pygeos.io.to_wkt(pygeos.from_wkb(network.geometry))
 network['geoms'] = network['geoms'].apply(wkt.loads)
-
-# lon and lat are swapped: swap them how they should be
-# network['geoms'] = network.geoms.map(lambda line: transform(lambda x, y: (y, x), line))
-
 network.drop('geometry', axis=1, inplace=True)
 network.rename(columns={'geoms': 'geometry'}, inplace=True)
 
@@ -59,13 +67,15 @@ network.rename(columns={'geoms': 'geometry'}, inplace=True)
 network_geoms = gpd.GeoDataFrame(network, geometry='geometry', crs='EPSG:4326')
 network_geoms = network_geoms.to_crs('EPSG:3857')
 
-# plot the road network of the country that is being intersected
-network_geoms.plot()
-plt.title(current_country)
-plt.show()
+
+# clip the hazard map to the extent of the road network of the country that is being intersected with the hazard map
+def clip_raster(path_to_floodmap, country_bounds):
+    xds = rioxarray.open_rasterio(path_to_floodmap, masked=True, chunks=True)
+    to_clip = gpd.GeoDataFrame(geometry=[box(*country_bounds)], crs=xds.rio.crs.to_dict())
+    return xds.rio.clip(to_clip.geometry.apply(mapping), to_clip.crs, drop=True)
 
 
-def hazard_intersect_gdf(gdf, hazard, hazard_name, res=1, agg='max'):
+def hazard_intersect_gdf(gdf, hazard_xarray, hazard_name, res=1, agg='max'):
     """adds hazard values (flood/earthquake/etc) to the roads in a geodataframe
     Args:
         gdf [geopandas geodataframe]
@@ -79,99 +89,106 @@ def hazard_intersect_gdf(gdf, hazard, hazard_name, res=1, agg='max'):
     gdf[hazard_name] = 0
 
     # import and append the hazard data
-    if hazard.endswith('.tif'):
-        # GeoTIFF
-        src = rasterio.open(hazard)
-        print("Raster projection:", src.crs)
-        # check which road is overlapping with the flood and append the flood depth to the graph
-        for row in range(len(gdf)):
-            if gdf.iloc[row]['geometry']:
-                # check how long the road stretch is and make a point every other meter
-                if res == 1:
-                    nr_points = round(gdf.iloc[row]['geometry'].length)
-                else:
-                    nr_points = round(gdf.iloc[row]['geometry'].length / 50)
-                if nr_points == 1:
-                    coords_to_check = list(gdf.iloc[row]['geometry'].boundary)
-                else:
-                    coords_to_check = [gdf.iloc[row]['geometry'].interpolate(i / float(nr_points - 1), normalized=True) for i in
-                                       range(nr_points)]
-                crds = []
-                for c in coords_to_check:
-                    # check if part of the linestring is inside the flood extent
-                    if (src.bounds.left < c.coords[0][0] < src.bounds.right) and (src.bounds.bottom < c.coords[0][1] < src.bounds.top):
-                        crds.append(c.coords[0])
-                if crds:
-                    values_list = [x.item(0) for x in src.sample(crds)]
-                    # the road lays inside the flood extent
-                    if agg == 'max':
-                        if (max(values_list) > 999999) | (max(values_list) < -999999):
-                            # the road is most probably in the 'no data' area of the raster (usually a very large or small number is used as 'no data' value)
-                            gdf.iloc[row][hazard_name] = 0
-                        else:
-                            gdf.iloc[row][hazard_name] = max(values_list)
-                    elif agg == 'min':
-                        if (min(values_list) > 999999) | (min(values_list) < -999999):
-                            # the road is most probably in the 'no data' area of the raster (usually a very large or small number is used as 'no data' value)
-                            gdf.iloc[row][hazard_name] = 0
-                        else:
-                            gdf.iloc[row][hazard_name] = min(values_list)
-                    elif agg == 'mean':
-                        if (mean(values_list) > 999999) | (mean(values_list) < -999999):
-                            # the road is most probably in the 'no data' area of the raster (usually a very large or small number is used as 'no data' value)
-                            gdf.iloc[row][hazard_name] = 0
-                        else:
-                            gdf.iloc[row][hazard_name] = mean(values_list)
-                    elif agg == 'mode':
-                        if (mode(values_list) > 999999) | (mode(values_list) < -999999):
-                            # the road is most probably in the 'no data' area of the raster (usually a very large or small number is used as 'no data' value)
-                            gdf.iloc[row][hazard_name] = 0
-                        else:
-                            gdf.iloc[row][hazard_name] = mode(values_list)
-                    else:
-                        print("No aggregation method is chosen ('max', 'min', 'mean' or 'mode').")
+    print("Raster projection:", hazard_xarray.spatial_ref.crs_wkt)
+    # check which road is overlapping with the flood and append the flood depth to the graph
+    for row in range(len(gdf)):
+        if gdf.iloc[row]['geometry']:
+            # check how long the road stretch is and make a point every 'res' meters
+            if res == 1:
+                nr_points = round(gdf.iloc[row]['geometry'].length)
+            else:
+                nr_points = round(gdf.iloc[row]['geometry'].length / res)
+            if nr_points == 1:
+                coords_to_check = list(gdf.iloc[row]['geometry'].boundary)
+            else:
+                coords_to_check = [gdf.iloc[row]['geometry'].interpolate(i / float(nr_points - 1), normalized=True) for i in
+                                   range(nr_points)]
 
-    elif hazard.endswith('.shp'):
-        print("Shapefile overlay not yet implemented")
-        # # Shapefile
-        # gdf = gpd.read_file(hazard)
-        # spatial_index = gdf.sindex
-        #
-        # for u, v, k, edata in graph.edges.data(keys=True):
-        #     if 'geometry' in edata:
-        #         possible_matches_index = list(spatial_index.intersection(edata['geometry'].bounds))
-        #         possible_matches = gdf.iloc[possible_matches_index]
-        #         precise_matches = possible_matches[possible_matches.intersects(edata['geometry'])]
-        #
-        #         if not precise_matches.empty:
-        #             if agg == 'max':
-        #                 graph[u][v][k][hazard_name] = precise_matches[hazard_name].max()
-        #             if agg == 'min':
-        #                 graph[u][v][k][hazard_name] = precise_matches[hazard_name].min()
-        #             if agg == 'mean':
-        #                 graph[u][v][k][hazard_name] = precise_matches[hazard_name].mean()
-        #         else:
-        #             graph[u][v][k][hazard_name] = 0
-        #     else:
-        #         graph[u][v][k][hazard_name] = 0
+            if coords_to_check:
+                crds = [c.coords[0] for c in coords_to_check]
+                values_list = [hazard_xarray.sel(x=xy[0], y=xy[1], method="nearest").values[0] for xy in crds]
+
+                # the road lays inside the flood extent
+                if agg == 'max':
+                    if (np.nanmax(values_list) > 999999) | (np.nanmax(values_list) < -999999):
+                        # the road is most probably in the 'no data' area of the raster (usually a very large or small number is used as 'no data' value)
+                        gdf.iloc[row][hazard_name] = 0
+                    else:
+                        gdf.iloc[row][hazard_name] = np.nanmax(values_list)
+                elif agg == 'min':
+                    if (np.nanmin(values_list) > 999999) | (np.nanmin(values_list) < -999999):
+                        # the road is most probably in the 'no data' area of the raster (usually a very large or small number is used as 'no data' value)
+                        gdf.iloc[row][hazard_name] = 0
+                    else:
+                        gdf.iloc[row][hazard_name] = np.nanmin(values_list)
+                elif agg == 'mean':
+                    if (np.nanmean(values_list) > 999999) | (np.nanmean(values_list) < -999999):
+                        # the road is most probably in the 'no data' area of the raster (usually a very large or small number is used as 'no data' value)
+                        gdf.iloc[row][hazard_name] = 0
+                    else:
+                        gdf.iloc[row][hazard_name] = np.nanmean(values_list)
+                elif agg == 'mode':
+                    # remove nan values because there is no such numpy.nanmode()
+                    values_list = [item for item in values_list if not pd.isnull(item)]
+                    if (mode(values_list) > 999999) | (mode(values_list) < -999999):
+                        # the road is most probably in the 'no data' area of the raster (usually a very large or small number is used as 'no data' value)
+                        gdf.iloc[row][hazard_name] = 0
+                    else:
+                        gdf.iloc[row][hazard_name] = mode(values_list)
+                else:
+                    print("No aggregation method is chosen ('max', 'min', 'mean' or 'mode').")
 
     return gdf
 
 
+# overlay the flood depth map
+clipped = clip_raster(floodmap_RP100_path, network_geoms.total_bounds)
+
+fig, ax = plt.subplots(1, 1, figsize=(10,10))
+clipped.plot(ax=ax, cmap='winter')
+network_geoms.plot(ax=ax, edgecolor='black', linewidth=0.75)
+plt.title(current_country)
+# plt.show()
+plt.savefig(os.path.join(output_folder.format(current_country), current_country + "_roads_flood_depth.png"))
+plt.close()
+
 # Overlay the geodataframe of the network with the (flood) hazard for the flood depth
-network_flood = hazard_intersect_gdf(network_geoms, floodmap_RP100_path, 'floodDepth', res=50, agg='max')
-
-# Overlay the geodataframe of the network with the (flood) hazard event data for the "area of influence" (event)
-network_flood = hazard_intersect_gdf(network_flood, aoimap_RP100_path, 'AoI_RP100', res=50, agg='mode')
-
-network_flood['floodDepth'].max()
+network_flood = hazard_intersect_gdf(network_geoms, clipped, 'floodDepth', res=10000, agg='max')
+print("Maximum flood depth:", network_flood['floodDepth'].max())
 
 # plot the flood depth on the roads in the network
 network_flood.plot(column='floodDepth')
 plt.title(current_country)
-plt.show()
+# plt.show()
+plt.savefig(os.path.join(output_folder.format(current_country), current_country + "_flood_depth_on_roads.png"))
+plt.close()
 
+
+# overlay the Area of Influence map
+clipped = clip_raster(aoimap_RP100_path, network_geoms.total_bounds)
+
+fig, ax = plt.subplots(1, 1, figsize=(10,10))
+clipped.plot(ax=ax, cmap='spring')
+network_geoms.plot(ax=ax, edgecolor='black', linewidth=0.75)
+plt.title(current_country)
+# plt.show()
+plt.savefig(os.path.join(output_folder.format(current_country), current_country + "_roads_aoi.png"))
+plt.close()
+
+# Overlay the geodataframe of the network with the (flood) hazard event data for the "area of influence" (event)
+network_flood = hazard_intersect_gdf(network_flood, aoimap_RP100_path, 'AoI_RP100', res=100, agg='mode')
+
+# save as shapefile to check the network
+network_flood.to_file(os.path.join(output_folder.format(current_country), current_country + "_network.shp"))
+
+# Create a graph from the geodataframe
 graph = create_graph(network_flood)[0]
 print(ig.summary(graph))
 
-list(graph.es())[0]
+gdf_edges = pd.DataFrame(list(graph.es['geometry']), columns=['geometry'])
+gdf_nodes = pd.DataFrame(list(graph.vs['geometry']), columns=['geometry'])
+
+gdf_edges.to_feather(os.path.join(output_folder.format(current_country), current_country + "_edges.feather"))
+gdf_nodes.to_feather(os.path.join(output_folder.format(current_country), current_country + "_nodes.feather"))
+
+print(current_country, "done!")
