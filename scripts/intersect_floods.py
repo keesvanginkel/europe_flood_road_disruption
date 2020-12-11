@@ -107,34 +107,36 @@ def hazard_intersect_gdf(gdf, hazard_xarray, hazard_name, res=1, agg='max'):
             if coords_to_check:
                 crds = [c.coords[0] for c in coords_to_check]
                 values_list = [hazard_xarray.sel(x=xy[0], y=xy[1], method="nearest").values[0] for xy in crds]
-
+                print(values_list)
                 # the road lays inside the flood extent
                 if agg == 'max':
                     if (np.nanmax(values_list) > 999999) | (np.nanmax(values_list) < -999999):
                         # the road is most probably in the 'no data' area of the raster (usually a very large or small number is used as 'no data' value)
-                        gdf.iloc[row][hazard_name] = 0
+                        gdf.loc[row, hazard_name] = 0
+                        print('0')
                     else:
-                        gdf.iloc[row][hazard_name] = np.nanmax(values_list)
+                        gdf.loc[row, hazard_name] = np.nanmax(values_list)
+                        print(np.nanmax(values_list))
                 elif agg == 'min':
                     if (np.nanmin(values_list) > 999999) | (np.nanmin(values_list) < -999999):
                         # the road is most probably in the 'no data' area of the raster (usually a very large or small number is used as 'no data' value)
-                        gdf.iloc[row][hazard_name] = 0
+                        gdf.loc[row, hazard_name] = 0
                     else:
-                        gdf.iloc[row][hazard_name] = np.nanmin(values_list)
+                        gdf.loc[row, hazard_name] = np.nanmin(values_list)
                 elif agg == 'mean':
                     if (np.nanmean(values_list) > 999999) | (np.nanmean(values_list) < -999999):
                         # the road is most probably in the 'no data' area of the raster (usually a very large or small number is used as 'no data' value)
-                        gdf.iloc[row][hazard_name] = 0
+                        gdf.loc[row, hazard_name] = 0
                     else:
-                        gdf.iloc[row][hazard_name] = np.nanmean(values_list)
+                        gdf.loc[row, hazard_name] = np.nanmean(values_list)
                 elif agg == 'mode':
                     # remove nan values because there is no such numpy.nanmode()
                     values_list = [item for item in values_list if not pd.isnull(item)]
                     if (mode(values_list) > 999999) | (mode(values_list) < -999999):
                         # the road is most probably in the 'no data' area of the raster (usually a very large or small number is used as 'no data' value)
-                        gdf.iloc[row][hazard_name] = 0
+                        gdf.loc[row, hazard_name] = 0
                     else:
-                        gdf.iloc[row][hazard_name] = mode(values_list)
+                        gdf.loc[row, hazard_name] = mode(values_list)
                 else:
                     print("No aggregation method is chosen ('max', 'min', 'mean' or 'mode').")
 
@@ -165,11 +167,13 @@ plt.close()
 
 
 # overlay the Area of Influence map
-clipped = clip_raster(aoimap_RP100_path, network_geoms.total_bounds)
+clipped = clip_raster(aoimap_RP100_path, network_flood.total_bounds)
+
+xds = rioxarray.open_rasterio(aoimap_RP100_path, masked=True, chunks=True)
 
 fig, ax = plt.subplots(1, 1, figsize=(10,10))
-clipped.plot(ax=ax, cmap='spring')
-network_geoms.plot(ax=ax, edgecolor='black', linewidth=0.75)
+xds.plot(ax=ax, cmap='spring')
+network_flood.plot(ax=ax, edgecolor='black', linewidth=0.75)
 plt.title(current_country)
 # plt.show()
 plt.savefig(os.path.join(output_folder.format(current_country), current_country + "_roads_aoi.png"))
