@@ -16,20 +16,16 @@ sys.path.append(r"D:\COACCH_paper\trails-master\src\trails")
 # os.chdir(os.path.dirname(folder))  # set working directory to top folder
 
 import pygeos
-from pyproj import Transformer
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
 from flow_model import create_graph
 import igraph as ig
-import rasterio
 from statistics import mode
 from shapely.geometry import box, mapping
 from shapely import wkt
-import xarray as xr
 import rioxarray
 import numpy as np
-from shapely.ops import transform
 
 # define in- and output folders
 input_folder = r"D:\COACCH_paper\data"
