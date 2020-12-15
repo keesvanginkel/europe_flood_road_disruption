@@ -25,12 +25,12 @@ country = 'albania'
 save_path = r"D:\COACCH_paper\data\output\{}".format(country)
 
 # import files
-G_nx = nx.read_gpickle(r"P:\osm_flood\network_analysis\{c}\{c}_graph.gpickle".format(c=country))
-pref_time = gpd.read_file(r"P:\osm_flood\network_analysis\{c}\time_pref_routes.shp".format(c=country))
-all_aois = pickle.load(open(r"P:\osm_flood\network_analysis\{c}\aois_{c}.p".format(c=country), "rb"))
+G_nx = nx.read_gpickle(r"P:\osm_flood\network_analysis\networkx\{c}\{c}_graph.gpickle".format(c=country))
+pref_time = gpd.read_file(r"P:\osm_flood\network_analysis\networkx\{c}\time_pref_routes.shp".format(c=country))
 
 # parameters
 nr_reps = 100
+AoI_name = 'AoI_rp100'
 
 # convert NetworkX graph to iGraph (identifiers change)
 G = ig.Graph.from_networkx(G_nx)
@@ -54,6 +54,8 @@ def stochastic_network_analysis(nr_comb):
         print('{} already finished!'.format(nr_comb))
         return None
 
+    all_aois = list(set([item for sublist in G.es[AoI_name] for item in sublist if item != 0 and item == item]))
+
     # for only 1 AoI and the maximum nr of AoI's, there is a slightly different approach
     if nr_comb == 1:
         list_aois = all_aois
@@ -74,9 +76,9 @@ def stochastic_network_analysis(nr_comb):
 
         # remove the edges per flood event (Area of Influence)
         if nr_comb == 1:
-            to_remove = G.es.select(lambda e: aoi in e.attributes()['AoI_rp100'])
+            to_remove = G.es.select(lambda e: aoi in e.attributes()[AoI_name])
         else:
-            to_remove = G.es.select(lambda e: set(aoi) & set(e.attributes()['AoI_rp100']))
+            to_remove = G.es.select(lambda e: set(aoi) & set(e.attributes()[AoI_name]))
         H.delete_edges(to_remove)
 
         extra_time = []

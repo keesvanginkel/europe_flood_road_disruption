@@ -1,4 +1,4 @@
-country;code3;code2
+﻿country;code3;code2
 Afghanistan;AFG;AF
 Albania;ALB;AL
 Algeria;DZA;DZ
@@ -50,7 +50,7 @@ Comoros;COM;KM
 Congo;COG;CG
 Cook Islands;COK;CK
 Costa Rica;CRI;CR
-Cote d�Ivoire;CIV;CI
+Cote d’Ivoire;CIV;CI
 Croatia;HRV;HR
 Cuba;CUB;CU
 Cyprus;CYP;CY
@@ -241,4 +241,3 @@ Western Sahara;ESH;EH
 Yemen;YEM;YE
 Zambia ;ZMB;ZM
 Zimbabwe;ZWE;ZW
-;;
