@@ -1,247 +1,244 @@
-code;country
-ABW;Aruba
-AFG;Afghanistan
-AGO;Angola
-AIA;Anguilla
-ALA;Aland Islands
-ALB;Albania
-AND;Andorra
-ANT;Netherlands Antilles
-ARE;United Arab Emirates
-ARG;Argentina
-ARM;Armenia
-ASM;American Samoa
-ATA;Antarctica
-ATF;French Southern Territories
-ATG;Antigua and Barbuda
-AUS;Australia
-AUT;Austria
-AZE;Azerbaijan
-BDI;Burundi
-BEL;Belgium
-BEN;Benin
-BFA;Burkina Faso
-BGD;Bangladesh
-BGR;Bulgaria
-BHR;Bahrain
-BHS;Bahamas
-BIH;Bosnia and Herzegovina
-BLM;Saint Barthelemy
-BLR;Belarus
-BLZ;Belize
-BMU;Bermuda
-BOL;Bolivia, Plurinational State of
-BRA;Brazil
-BRB;Barbados
-BRN;Brunei Darussalam
-BTN;Bhutan
-BVT;Bouvet Island
-BWA;Botswana
-CAF;Central African Republic
-CAN;Canada
-CCK;Cocos (Keeling) Islands
-CHE;Switzerland
-CHL;Chile
-CHN;China
-CIV;Cote d'Ivoire
-CMR;Cameroon
-COD;Congo, the Democratic Republic of the
-COG;Congo
-COK;Cook Islands
-COL;Colombia
-COM;Comoros
-CPV;Cape Verde
-CRI;Costa Rica
-CUB;Cuba
-CXR;Christmas Island
-CYM;Cayman Islands
-CYP;Cyprus
-CZE;Czech Republic
-DEU;Germany
-DJI;Djibouti
-DMA;Dominica
-DNK;Denmark
-DOM;Dominican Republic
-DZA;Algeria
-ECU;Ecuador
-EGY;Egypt
-ERI;Eritrea
-ESH;Western Sahara
-ESP;Spain
-EST;Estonia
-ETH;Ethiopia
-FIN;Finland
-FJI;Fiji
-FLK;Falkland Islands (Malvinas)
-FRA;France
-FRO;Faroe Islands
-FSM;Micronesia, Federated States of
-GAB;Gabon
-GBR;United Kingdom
-GEO;Georgia
-GGY;Guernsey
-GHA;Ghana
-GIB;Gibraltar
-GIN;Guinea
-GLP;Guadeloupe
-GMB;Gambia
-GNB;Guinea-Bissau
-GNQ;Equatorial Guinea
-GRC;Greece
-GRD;Grenada
-GRL;Greenland
-GTM;Guatemala
-GUF;French Guiana
-GUM;Guam
-GUY;Guyana
-HKG;Hong Kong
-HMD;Heard Island and McDonald Islands
-HND;Honduras
-HRV;Croatia
-HTI;Haiti
-HUN;Hungary
-IDN;Indonesia
-IMN;Isle of Man
-IND;India
-IOT;British Indian Ocean Territory
-IRL;Ireland
-IRN;Iran, Islamic Republic of
-IRQ;Iraq
-ISL;Iceland
-ISR;Israel
-ITA;Italy
-JAM;Jamaica
-JEY;Jersey
-JOR;Jordan
-JPN;Japan
-KAZ;Kazakhstan
-KEN;Kenya
-KGZ;Kyrgyzstan
-KHM;Cambodia
-KIR;Kiribati
-KNA;Saint Kitts and Nevis
-KOR;Korea, Republic of
-KWT;Kuwait
-LAO;Lao People's Democratic Republic
-LBN;Lebanon
-LBR;Liberia
-LBY;Libyan Arab Jamahiriya
-LCA;Saint Lucia
-LIE;Liechtenstein
-LKA;Sri Lanka
-LSO;Lesotho
-LTU;Lithuania
-LUX;Luxembourg
-LVA;Latvia
-MAC;Macao
-MAF;Saint Martin (French part)
-MAR;Morocco
-MCO;Monaco
-MDA;Moldova, Republic of
-MDG;Madagascar
-MDV;Maldives
-MEX;Mexico
-MHL;Marshall Islands
-MKD;Macedonia, the former Yugoslav Republic of
-MLI;Mali
-MLT;Malta
-MMR;Myanmar
-MNE;Montenegro
-MNG;Mongolia
-MNP;Northern Mariana Islands
-MOZ;Mozambique
-MRT;Mauritania
-MSR;Montserrat
-MTQ;Martinique
-MUS;Mauritius
-MWI;Malawi
-MYS;Malaysia
-MYT;Mayotte
-NAM;Namibia
-NCL;New Caledonia
-NER;Niger
-NFK;Norfolk Island
-NGA;Nigeria
-NIC;Nicaragua
-NIU;Niue
-NLD;Netherlands
-NOR;Norway
-NPL;Nepal
-NRU;Nauru
-NZL;New Zealand
-OMN;Oman
-PAK;Pakistan
-PAN;Panama
-PCN;Pitcairn
-PER;Peru
-PHL;Philippines
-PLW;Palau
-PNG;Papua New Guinea
-POL;Poland
-PRI;Puerto Rico
-PRK;Korea, Democratic People's Republic of
-PRT;Portugal
-PRY;Paraguay
-PSE;Palestinian Territory, Occupied
-PYF;French Polynesia
-QAT;Qatar
-REU;Reunion
-ROU;Romania
-RUS;Russian Federation
-RWA;Rwanda
-SAU;Saudi Arabia
-SDN;Sudan
-SEN;Senegal
-SGP;Singapore
-SGS;South Georgia and the South Sandwich Islands
-SHN;Saint Helena, Ascension and Tristan da Cunha
-SJM;Svalbard and Jan Mayen
-SLB;Solomon Islands
-SLE;Sierra Leone
-SLV;El Salvador
-SMR;San Marino
-SOM;Somalia
-SPM;Saint Pierre and Miquelon
-SRB;Serbia
-STP;Sao Tome and Principe
-SUR;Suriname
-SVK;Slovakia
-SVN;Slovenia
-SWE;Sweden
-SWZ;Swaziland
-SYC;Seychelles
-SYR;Syrian Arab Republic
-TCA;Turks and Caicos Islands
-TCD;Chad
-TGO;Togo
-THA;Thailand
-TJK;Tajikistan
-TKL;Tokelau
-TKM;Turkmenistan
-TLS;Timor-Leste
-TON;Tonga
-TTO;Trinidad and Tobago
-TUN;Tunisia
-TUR;Turkey
-TUV;Tuvalu
-TWN;Taiwan, Province of China
-TZA;Tanzania, United Republic of
-UGA;Uganda
-UKR;Ukraine
-UMI;United States Minor Outlying Islands
-URY;Uruguay
-USA;United States
-UZB;Uzbekistan
-VAT;Holy See (Vatican City State)
-VCT;Saint Vincent and the Grenadines
-VEN;Venezuela, Bolivarian Republic of
-VGB;Virgin Islands, British
-VIR;Virgin Islands, U.S.
-VNM;Viet Nam
-VUT;Vanuatu
-WLF;Wallis and Futuna
-WSM;Samoa
-YEM;Yemen
-ZAF;South Africa
-ZMB;Zambia
-ZWE;Zimbabwe
+country;code3;code2
+Afghanistan;AFG;AF
+Albania;ALB;AL
+Algeria;DZA;DZ
+American Samoa;ASM;AS
+Andorra;AND;AD
+Angola;AGO;AO
+Anguilla;AIA;AI
+Antarctica;ATA;AQ
+Antigua and Barbuda;ATG;AG
+Argentina;ARG;AR
+Armenia;ARM;AM
+Aruba;ABW;AW
+Australia;AUS;AU
+Austria;AUT;AT
+Azerbaijan;AZE;AZ
+Bahamas;BHS;BS
+Bahrain;BHR;BH
+Bangladesh;BGD;BD
+Barbados;BRB;BB
+Belarus;BLR;BY
+Belgium;BEL;BE
+Belize;BLZ;BZ
+Benin;BEN;BJ
+Bermuda;BMU;BM
+Bhutan;BTN;BT
+Bolivia;BOL;BO
+Bosnia and Herzegovina;BIH;BA
+Botswana;BWA;BW
+Bouvet Island;BVT;BV
+Brazil;BRA;BR
+British Indian Ocean Territory;IOT;IO
+Brunei Darussalam;BRN;BN
+Bulgaria;BGR;BG
+Burkina Faso;BFA;BF
+Burundi;BDI;BI
+Cambodia;KHM;KH
+Cameroon;CMR;CM
+Canada;CAN;CA
+Cape Verde;CPV;CV
+Cayman Islands;CYM;KY
+Central African Republic;CAF;CF
+Chad;TCD;TD
+Chile;CHL;CL
+China ;CHN;CN
+Christmas Island;CXR;CX
+Cocos (Keeling) Islands;CCK;CC
+Colombia;COL;CO
+Comoros;COM;KM
+Congo;COG;CG
+Cook Islands;COK;CK
+Costa Rica;CRI;CR
+Cote d’Ivoire;CIV;CI
+Croatia;HRV;HR
+Cuba;CUB;CU
+Cyprus;CYP;CY
+Czechia;CZE;CZ
+Democratic Republic Congo;COD;CD
+Denmark;DNK;DK
+Djibouti;DJI;DJ
+Dominica;DMA;DM
+Dominican Republic;DOM;DO
+Ecuador;ECU;EC
+Egypt;EGY;EG
+El Salvador;SLV;SV
+Equatorial Guinea;GNQ;GQ
+Eritrea;ERI;ER
+Estonia;EST;EE
+Ethiopia;ETH;ET
+European Union (only used for Funding Body and Grant information);EUE;EU
+Falkland Islands (Malvinas);FLK;FK
+Faroe Islands;FRO;FO
+Federated States of Micronesia;FSM;FM
+Fiji;FJI;FJ
+Finland;FIN;FI
+France;FRA;FR
+French Guiana;GUF;GF
+French Polynesia;PYF;PF
+French Southern Territories;ATF;TF
+Gabon;GAB;GA
+Gambia;GMB;GM
+Georgia;GEO;GE
+Germany;DEU;DE
+Ghana;GHA;GH
+Gibraltar;GIB;GI
+Greece;GRC;GR
+Greenland;GRL;GL
+Grenada;GRD;GD
+Guadeloupe;GLP;GP
+Guam;GUM;GU
+Guatemala;GTM;GT
+Guinea;GIN;GN
+Guinea-Bissau;GNB;GW
+Guyana;GUY;GY
+Haiti;HTI;HT
+Heard Island and McDonald Islands;HMD;HM
+Honduras;HND;HN
+Hong Kong;HKG;HK
+Hungary;HUN;HU
+Iceland;ISL;IS
+India;IND;IN
+Indonesia;IDN;ID
+Iran;IRN;IR
+Iraq;IRQ;IQ
+Ireland;IRL;IE
+Israel;ISR;IL
+Italy;ITA;IT
+Jamaica;JAM;JM
+Japan;JPN;JP
+Jordan;JOR;JO
+Kazakhstan;KAZ;KZ
+Kenya;KEN;KE
+Kiribati;KIR;KI
+Kuwait;KWT;KW
+Kyrgyzstan;KGZ;KG
+Laos;LAO;LA
+Latvia ;LVA;LV
+Lebanon;LBN;LB
+Lesotho;LSO;LS
+Liberia;LBR;LR
+Libyan Arab Jamahiriya;LBY;LY
+Liechtenstein;LIE;LI
+Lithuania;LTU;LT
+Luxembourg;LUX;LU
+Macao;MAC;MO
+Macedonia;MKD;MK
+Madagascar;MDG;MG
+Malawi;MWI;MW
+Malaysia;MYS;MY
+Maldives;MDV;MV
+Mali;MLI;ML
+Malta;MLT;MT
+Marshall Islands;MHL;MH
+Martinique;MTQ;MQ
+Mauritania;MRT;MR
+Mauritius;MUS;MU
+Mayotte;MYT;YT
+Mexico;MEX;MX
+Moldova;MDA;MD
+Monaco;MCO;MC
+Mongolia;MNG;MN
+Montenegro;MNE;ME
+Montserrat;MSR;MS
+Morocco;MAR;MA
+Mozambique;MOZ;MZ
+Myanmar;MMR;MM
+Namibia;NAM;NA
+Nauru;NRU;NR
+Nepal;NPL;NP
+Netherlands;NLD;NL
+Netherlands Antilles;ANT;AN
+New Caledonia;NCL;NC
+New Zealand;NZL;NZ
+Nicaragua;NIC;NI
+Niger;NER;NE
+Nigeria;NGA;NG
+Niue;NIU;NU
+Norfolk Island;NFK;NF
+North Korea;PRK;KP
+Northern Mariana Islands;MNP;MP
+Norway;NOR;NO
+Oman;OMN;OM
+Pakistan;PAK;PK
+Palau;PLW;PW
+Palestine ;PSE;PS
+Panama;PAN;PA
+Papua New Guinea;PNG;PG
+Paraguay;PRY;PY
+Peru;PER;PE
+Philippines ;PHL;PH
+Pitcairn;PCN;PN
+Poland;POL;PL
+Portugal;PRT;PT
+Puerto Rico;PRI;PR
+Qatar;QAT;QA
+Reunion;REU;RE
+Romania;ROU;RO
+Russian Federation;RUS;RU
+Rwanda;RWA;RW
+Saint Helena;SHN;SH
+Saint Kitts and Nevis;KNA;KN
+Saint Lucia;LCA;LC
+Saint Pierre and Miquelon;SPM;PM
+Saint Vincent and the Grenadines;VCT;VC
+Samoa;WSM;WS
+San Marino;SMR;SM
+Sao Tome and Principe;STP;ST
+Saudi Arabia;SAU;SA
+Senegal ;SEN;SN
+Serbia;SRB;RS
+Seychelles;SYC;SC
+Sierra Leone;SLE;SL
+Singapore;SGP;SG
+Slovakia;SVK;SK
+Slovenia;SVN;SI
+Solomon Islands;SLB;SB
+Somalia;SOM;SO
+South Africa;ZAF;ZA
+South Georgia and the South ;SGS;GS
+Sandwich Islands;;
+South Korea;KOR;KR
+Spain;ESP;ES
+Sri Lanka;LKA;LK
+Sudan;SDN;SD
+Suriname;SUR;SR
+Svalbard and Jan Mayen;SJM;SJ
+Swaziland;SWZ;SZ
+Sweden;SWE;SE
+Switzerland;CHE;CH
+Syrian Arab Republic;SYR;SY
+Taiwan;TWN;TW
+Tajikistan;TJK;TJ
+Tanzania;TZA;TZ
+Thailand;THA;TH
+Timor-Leste;TLS;TL
+Togo;TGO;TG
+Tokelau;TKL;TK
+Tonga;TON;TO
+Trinidad and Tobago;TTO;TT
+Tunisia;TUN;TN
+Turkey;TUR;TR
+Turkmenistan;TKM;TM
+Turks and Caicos Islands;TCA;TC
+Tuvalu;TUV;TV
+Uganda;UGA;UG
+Ukraine;UKR;UA
+United Arab Emirates;ARE;AE
+United Kingdom;GBR;GB
+United States;USA;US
+United States Minor Outlying Islands;UMI;UM
+Uruguay;URY;UY
+Uzbekistan;UZB;UZ
+Vanuatu ;VUT;VU
+Vatican City State;VAT;VA
+Venezuela;VEN;VE
+Viet Nam;VNM;VN
+Virgin Islands (British);VGB;VG
+Virgin Islands (U.S.);VIR;VI
+Wallis and Futuna;WLF;WF
+Western Sahara;ESH;EH
+Yemen;YEM;YE
+Zambia ;ZMB;ZM
+Zimbabwe;ZWE;ZW
+;;
