@@ -15,7 +15,7 @@ sys.path.append(r"D:\COACCH_paper\trails-master\src\trails")
 # sys.path.append(folder)
 # os.chdir(os.path.dirname(folder))  # set working directory to top folder
 
-import pygeos
+import pygeos as pyg
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
@@ -61,7 +61,7 @@ def intersect_iterator(i):
     network = pd.read_feather(network_files[i])
 
     # create a geometry column with shapely geometries
-    network['geoms'] = pygeos.io.to_wkt(pygeos.from_wkb(network.geometry))
+    network['geoms'] = pyg.io.to_wkt(pyg.from_wkb(network.geometry))
     network['geoms'] = network['geoms'].apply(wkt.loads)
     network.drop('geometry', axis=1, inplace=True)
     network.rename(columns={'geoms': 'geometry'}, inplace=True)
@@ -202,3 +202,5 @@ def intersect_iterator(i):
 
 for ii in range(len(network_files)):
     intersect_iterator(ii)
+
+intersect_iterator(5)
