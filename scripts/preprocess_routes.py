@@ -274,10 +274,10 @@ def optimal_routes(cntry):
         nodes.to_feather(edge_file.replace("-edges", "-nodes_nuts3"))
 
         # Save the edges and nodes of the graph
-        # gdf_to_shp(gpd.GeoDataFrame(nodes, geometry='geometry', crs='epsg:4326'),
-        #            os.path.join(output_folder.format(current_country), 'nodes_{}.shp'.format(current_country)))
-        # gdf_to_shp(gpd.GeoDataFrame(network, geometry='geometry', crs='epsg:3035'),
-        #            os.path.join(output_folder.format(current_country), 'edges_{}.shp'.format(current_country)))
+        gdf_to_shp(gpd.GeoDataFrame(nodes, geometry='geometry', crs='epsg:4326'),
+                   os.path.join(output_folder.format(current_country), 'nodes_{}.shp'.format(current_country)))
+        gdf_to_shp(gpd.GeoDataFrame(network, geometry='geometry', crs='epsg:3035'),
+                   os.path.join(output_folder.format(current_country), 'edges_{}.shp'.format(current_country)))
     except KeyError as e:
         print(current_country, 'is not an EU memberstate.', e)
 
