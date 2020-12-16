@@ -150,7 +150,7 @@ def optimal_routes(cntry):
     # Location of graphs of all countries in Europe, saved in *.feather format
     networks_europe_path = os.path.join(input_folder, 'networks_intersect_hazard_elco_koks')
     edge_file = [os.path.join(networks_europe_path, f) for f in os.listdir(networks_europe_path) if
-                 f == cntry + '-edges.feather']
+                 f == cntry + '-edges.feather'][0]
 
     # Get the country codes from the *.feather files (networks) and see with a country code
     # translation table which countries are there
@@ -159,8 +159,6 @@ def optimal_routes(cntry):
 
     # set the weighing (time or distance)
     weighing = 'time'
-
-
 
     # cntry_code = network_files[i].split('-')[0].split('\\')[-1]
     current_country = translate_cntr_codes['country'][cntry].lower()
