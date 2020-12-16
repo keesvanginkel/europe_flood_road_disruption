@@ -90,7 +90,8 @@ def stochastic_network_analysis(nr_comb):
             d = vid_lookup[int(d)]
 
             # calculate the (alternative) distance between two nodes
-            alt_route = H.shortest_paths_dijkstra(source=o, target=d, weights=weighing)
+            # now the graph is treated as directed, make mode=ig.ALL to treat as undirected
+            alt_route = H.shortest_paths_dijkstra(source=o, target=d, mode=ig.OUT, weights=weighing)
             alt_route = alt_route[0][0]
             if alt_route != np.inf:
                 # alt_route = inf if the route is not available
