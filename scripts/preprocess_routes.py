@@ -29,12 +29,24 @@ import numpy as np
 from numpy import object as np_object
 from tqdm import tqdm
 from pathos.multiprocessing import Pool
-from collections.abc import Iterable
 
 
 # NUTS-3 regions of Europe
 # nuts_3_regions = r"D:\COACCH_countries\countries_shp\NUTS_RG_01M_2016_3035_LEVL_3.shp"
 # nuts_2_regions = r"D:\COACCH_countries\countries_shp\NUTS_RG_01M_2016_3035_LEVL_2.shp"
+
+# list of islands that aren't assessed
+overseas = ['PT200', 'PT300',  # Portugal: Azores and Madeira
+            'ES531', 'ES532', 'ES533', 'ES703', 'ES704', 'ES705', 'ES706', 'ES707', 'ES708', 'ES709', 'ES630', 'ES640',  # Spain: Canary Islands
+            'FRY10', 'FRY20', 'FRY30', 'FRY40',  # France: overseas areas: Gouadeloupe, Martinique, French Guiana, La Reunion, Mayotte "])
+            'FRY50', 'FRM01', 'FRM02',
+            'EL307', 'EL411', 'EL412', 'EL413', 'EL421', 'EL422', 'EL431', 'EL432', 'EL433', 'EL434', 'EL621', 'EL622', 'EL623',  # Greece
+            'HR037',  # croatia
+            'UKN0',  # UK (NUTS-2 classification)
+            'DK014',  # Denmark
+            'FI200',  # Finland
+            'SE214'  # Sweden
+             ]
 
 # Create a CSV file containing the coordinates of the centroids of the NUTS-3 regions, its country code ('CNTR_CODE'),
 # nuts code ('NUTS_ID') and nuts name ('NUTS_NAME')
@@ -182,7 +194,10 @@ def optimal_routes(cntry):
     centroids = pd.read_feather(r"D:\COACCH_paper\data\output\europe_nuts3_centroids.feather")
 
     # select the centroids that are in the country that is analysed
-    selected_centroids = centroids.loc[centroids['CNTR_CODE'] == translate_cntr_codes['code2'][cntry]]
+    # discard the centroids of the small islands that are not reachable from mainland Europe
+    selected_centroids = centroids.loc[(centroids['CNTR_CODE'] == translate_cntr_codes['code2'][cntry]) &
+                                       (~centroids['NUTS_ID'].isin(overseas))]
+
     try:
         selected_centroids['geometry'] = selected_centroids['geometry'].apply(pyg.from_wkt)
 
@@ -282,6 +297,9 @@ def optimal_routes(cntry):
         if len(pref_routes.index) != nr_optimal_routes:
             print("The number of preferred routes does not match with the number it should be. Check for country", cntry)
 
+        # remove impossible routes (with time = inf)
+        pref_routes = pref_routes.replace([np.inf, -np.inf], np.nan).dropna(subset=[weighing])
+
         # Save optimal routes as shapefile
         gdf_to_shp(pref_routes, os.path.join(output_folder.format(current_country), 'optimal_routes_{}_{}.shp'.format(weighing, current_country)))
         print("Optimal routes of {} saved to {}".format(current_country,
@@ -301,13 +319,12 @@ def optimal_routes(cntry):
 
 
 if __name__ == '__main__':
-    # countries = ['ALB', 'AND', 'AUT', 'BEL', 'BGR', 'CHE', 'CZE', 'DEU', 'DNK', 'ESP', 'FIN', 'FRA', 'GBR', 'GIB', 'GRC',
-    #              'HRV', 'HUN', 'IRL', 'ITA', 'LIE', 'LUX', 'MLT', 'NLD', 'NOR', 'POL', 'PRT', 'ROU', 'SRB', 'SVK', 'SWE']
-    countries = ['ALB', 'AND', 'AUT', 'BEL', 'BGR', 'CHE', 'CZE', 'DNK', 'ESP', 'FIN', 'FRA', 'GBR', 'GIB', 'GRC',
-                  'HRV', 'HUN', 'IRL', 'ITA', 'LIE', 'LUX', 'MLT', 'NLD', 'NOR', 'POL', 'PRT', 'ROU', 'SRB', 'SVK', 'SWE']
+    # countries = ['ALB', 'AUT', 'BEL', 'BGR', 'CHE', 'CZE', 'DEU', 'DNK', 'ESP', 'FIN', 'FRA', 'GBR', 'GIB', 'GRC',
+    #              'HRV', 'HUN', 'IRL', 'ITA', 'LUX', 'NLD', 'NOR', 'POL', 'PRT', 'ROU', 'SRB', 'SVK', 'SWE']
+    countries = ['HRV', 'ITA', 'PRT', 'DNK']
     from random import shuffle
     shuffle(countries)
     print(countries)
 
-    with Pool(7) as pool:
+    with Pool(4) as pool:
         pool.map(optimal_routes, countries, chunksize=1)
