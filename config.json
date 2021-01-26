@@ -1,0 +1,6 @@
+{ "Explanation" : "This json file contains the paths to the directories where the in- and output files are located",
+  "Paths" : {
+	"country_results" : "D:\\Europe_percolation\\igraph_copy"  }
+	
+	
+	}
