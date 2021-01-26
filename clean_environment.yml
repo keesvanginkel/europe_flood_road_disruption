@@ -1,0 +1,28 @@
+name: europe_flood_road_disruption
+
+channels: 
+  - conda-forge
+  
+dependencies:
+  - python=3.8
+  - gdal
+  - numpy
+  - networkx
+  - pandas
+  - shapely
+  - geopandas
+  - pygeos
+  - rasterio
+  - cartopy
+  - contextily
+  - tqdm
+  - rasterstats
+  - pip
+  - seaborn
+  - jupyter
+  - jupyterlab
+  - python-igraph
+  - xarray
+  - tqdm
+  - pathos
+  - networkx
