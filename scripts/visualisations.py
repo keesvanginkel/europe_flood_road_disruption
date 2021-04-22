@@ -15,11 +15,11 @@ import matplotlib.pyplot as plt
 import os
 import networkx as nx
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-# import network_functions as nf
-# import plotly.express as px
-# from plotly.offline import plot
+import network_functions as nf
+import plotly.express as px
+from plotly.offline import plot
 
-save_figs = r"D:\COACCH_paper\figures"
+save_figs = r"P:\osm_flood\network_analysis\igraph\figures"
 
 
 def combine_finished_stochastic(finished_folder):
@@ -43,24 +43,30 @@ def combine_finished_stochastic(finished_folder):
 
 
 def df_stochastic_results(folder):
-    files = [f for f in os.listdir(folder) if (os.path.isfile(os.path.join(folder, f))) and (f.endswith('.csv'))]
+    finished_folder = os.path.join(folder, 'finished')
+    files = [f for f in os.listdir(finished_folder) if (os.path.isfile(os.path.join(finished_folder, f))) and (f.endswith('.csv'))]
 
     # load data
     df = pd.DataFrame(columns=['AoI combinations', 'disrupted', 'avg extra time', 'AoI removed', 'no detour'])
     for f in files:
-        df_new = pd.read_csv(os.path.join(folder, f))
+        df_new = pd.read_csv(os.path.join(finished_folder, f))
         df = pd.concat([df, df_new], ignore_index=True, sort=False)
 
     df['AoI combinations'] = df['AoI combinations'].astype(int)
+    df.to_csv(os.path.join(folder, "{}.csv".format(folder.split('\\')[-1])))
     return df
 
 
 ## STOCHASTIC ANALYSIS VISUALISATIONS ##
 # compile results from parallel processing
-# combine_finished_stochastic(folder_results)
+countries = ['albania', 'austria', 'belgium', 'bulgaria', 'croatia', 'czechia', 'denmark', 'finland', 'france',
+             'germany', 'greece', 'hungary', 'ireland', 'netherlands', 'norway', 'poland', 'portugal', 'romania',
+             'serbia', 'slovakia', 'spain', 'switzerland']
 
-countries = ['albania'] #, 'austria', 'belgium', 'ireland', 'italy', 'sweden']
-folder_results = r'D:\COACCH_paper\data\output\{}'
+for c in countries:
+    combine_finished_stochastic(os.path.join(r"P:\osm_flood\network_analysis\igraph", c, 'finished'))
+
+folder_results = r"P:\osm_flood\network_analysis\igraph\{}"
 folders = [df_stochastic_results(folder=folder_results.format(c)) for c in countries]
 dict_dfs = dict(zip(countries, folders))
 
@@ -76,6 +82,7 @@ df.to_csv(os.path.join(folder_results.format(''), 'all_combinations.csv'))
 df = pd.read_csv(os.path.join(folder_results.format(''), 'all_combinations.csv'))
 
 df.sort_values('AoI combinations', inplace=True)
+df.sort_values('disrupted', inplace=True)
 positions = df['AoI combinations'].unique()
 
 vis1 = df[df['AoI combinations'] <= 5]
@@ -99,7 +106,7 @@ plt.savefig(os.path.join(save_figs, "preliminary_comparison_AT_AL_IE_SE_BE.png")
 plt.close()
 
 # plot as boxplot - v2
-be.loc[be['AoI combinations'] < 200].boxplot(by='AoI combinations', column='disrupted', figsize=(12, 5))
+df.boxplot(by='AoI combinations', column='disrupted', figsize=(12, 5))
 plt.xlabel("Number of combinations of flood events (AoI)")
 plt.ylabel("% preferred routes disrupted")
 plt.title("% routes between NUTS-3 regions in Belgium disrupted")
@@ -120,11 +127,11 @@ fig.update_xaxes(title_text="% of combinations of micro-floods (AoI's) of the ma
 fig.update_yaxes(title_text='% optimal routes disrupted')
 plot(fig, filename=os.path.join(save_figs, 'comparison_AT_AL_IE_IT_SE_BE_relative.html'))
 
-fig = px.box(df.loc[df['AoI combinations'] < 10], x="AoI combinations", y="disrupted", color="country")
+fig = px.box(df, x="AoI combinations", y="disrupted", color="country")
 fig.update_traces(quartilemethod="exclusive")  # or "inclusive", or "linear" by default
 fig.update_xaxes(title_text="Number of combinations of micro-floods (AoI's)")
 fig.update_yaxes(title_text='% optimal routes disrupted')
-plot(fig, filename=os.path.join(save_figs, 'comparison_AT_AL_IE_IT_SE_BE.html'))
+plot(fig, filename=os.path.join(save_figs, 'comparison_all_countries.html'))
 
 # plot as boxplot - v3
 positions = [1,2,3,4,5,8,9,10,11,12] #,15,16,17,18,19]
