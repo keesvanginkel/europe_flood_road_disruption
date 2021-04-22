@@ -2,9 +2,9 @@
 """
 Created on 15-12-2020
 
-@author: Frederique de Groen
+@author: Frederique de Groen & Kees van Ginkel
 
-Part of a COACCH criticality analysis of networks.
+Part of a COACCH percolation analysis of European road networks.
 
 """
 
@@ -157,10 +157,24 @@ def gdf_to_shp(gdf, result_shp):
 
 
 # iterate over the graphs
+#todo: paths should use the config file!!!
+#Todo: NuTS2/NUTS3 should not be hardcoded, but given to the function
 def optimal_routes(cntry):
+    """
+    Preprocessing: finds the optimal routes between the NUTS-3 or NUTS-2 regions in a country
+
+    :param cntry:
+    :return:
+
+    Requires
+     - feather files with edges and nodes of the road network of the country
+     - feather file with the centroids of the NUTS2 or NUTS-3 regions in the country
+    """
+
+
     # define in- and output folders
-    input_folder = r"D:\COACCH_paper\data"
-    output_folder = r"D:\COACCH_paper\data\output\{}"
+    input_folder = r"P:\osm_flood\network_analysis\data"
+    output_folder = r"P:\osm_flood\network_analysis\data\output\{}"
 
     # Location of graphs of all countries in Europe, saved in *.feather format
     networks_europe_path = os.path.join(input_folder, 'networks_intersect_hazard_elco_koks')
@@ -169,7 +183,7 @@ def optimal_routes(cntry):
 
     # Get the country codes from the *.feather files (networks) and see with a country code
     # translation table which countries are there
-    translate_cntr_codes = pd.read_csv(r"D:\COACCH_paper\europe_flood_road_disruption\data\country_codes.csv",
+    translate_cntr_codes = pd.read_csv(r"P:\osm_flood\network_analysis\igraph\europe_flood_road_disruption\data\country_codes.csv",
                                        delimiter=';').set_index('code3').to_dict(orient='dict')
 
     # set the weighing (time or distance)
@@ -192,7 +206,7 @@ def optimal_routes(cntry):
 
     # The centroids of the NUTS-3 regions
     # TODO: change this to NUTS-2 centroids if necessary
-    centroids = pd.read_feather(r"D:\COACCH_paper\data\output\europe_nuts3_centroids.feather")
+    centroids = pd.read_feather(r"P:\osm_flood\network_analysis\data\europe_nuts3_centroids.feather")
 
     # select the centroids that are in the country that is analysed
     # discard the centroids of the small islands that are not reachable from mainland Europe
@@ -254,10 +268,11 @@ def optimal_routes(cntry):
         list_combinations.append(max_aoi)
         list_combinations = [str(x) for x in list_combinations]
 
-        df = pd.read_csv(r"D:\COACCH_paper\europe_flood_road_disruption\data\nuts3_combinations.csv")
+        combinations_csv = r"P:\osm_flood\network_analysis\igraph\europe_flood_road_disruption\data\nuts3_combinations_completeness.csv"
+        df = pd.read_csv(combinations_csv)
         nr_optimal_routes = df.loc[df['code3'] == cntry, 'nr_routes'].iloc[0]
         df.loc[df['code3'] == cntry, 'aoi_combinations'] = " ".join(list_combinations)
-        df.to_csv(r"D:\COACCH_paper\europe_flood_road_disruption\data\nuts3_combinations.csv")
+        df.to_csv(combinations_csv)
 
         # dataframe to save the optimal routes
         pref_routes = gpd.GeoDataFrame(columns=['o_node', 'd_node', 'origin', 'destination', 'AoIs',
@@ -324,10 +339,13 @@ def optimal_routes(cntry):
 if __name__ == '__main__':
     # countries = ['ALB', 'AUT', 'BEL', 'BGR', 'CHE', 'CZE', 'DEU', 'DNK', 'ESP', 'FIN', 'FRA', 'GBR', 'GIB', 'GRC',
     #              'HRV', 'HUN', 'IRL', 'ITA', 'LUX', 'NLD', 'NOR', 'POL', 'PRT', 'ROU', 'SRB', 'SVK', 'SWE']
-    countries = ['HRV', 'ITA', 'PRT', 'DNK']
+    #countries = ['EST', 'LTU', 'LVA', 'MKD','SVN','SWE','DNK']
+    countries = ['SVN']
     from random import shuffle
     shuffle(countries)
     print(countries)
 
-    with Pool(4) as pool:
-        pool.map(optimal_routes, countries, chunksize=1)
+    optimal_routes(countries[0])
+
+    #with Pool(4) as pool:
+    #    pool.map(optimal_routes, countries, chunksize=1)
