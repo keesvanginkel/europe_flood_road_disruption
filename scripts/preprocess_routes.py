@@ -304,6 +304,8 @@ def optimal_routes(cntry):
     list_combinations = [str(x) for x in list_combinations]
 
     #combinations_csv = r"P:\osm_flood\network_analysis\igraph\europe_flood_road_disruption\data\nuts3_combinations_completeness.csv"
+    #Todo: change path (remove completeness)
+    #Todo: make sure it does not add empty columns
     combinations_csv = config['paths']['data'] / "nuts3_combinations_completeness.csv"
     df = pd.read_csv(combinations_csv,sep=';')
     nr_optimal_routes = df.loc[df['code3'] == cntry, 'nr_routes'].iloc[0]

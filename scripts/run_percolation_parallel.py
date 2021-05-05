@@ -59,16 +59,26 @@ class RunPercolation:
 
 
 if __name__ == '__main__':
-    cntrySetup = pd.read_csv(r"P:\osm_flood\network_analysis\igraph\europe_flood_road_disruption\data\nuts3_combinations.csv")
-    countries_ = ['FRA']  # 'BEL', 'DEU', 'NLD',
-    reps_ = 500
-    outputFolder = r"P:\osm_flood\network_analysis\igraph\{}"
+    #TODO: read from config
+    #Todo: changed seperator to ;
+    cntrySetup = pd.read_csv(r"P:\osm_flood\network_analysis\igraph\europe_flood_road_disruption\data\nuts3_combinations.csv",sep=';')
+    #countries_ = ['FRA']  # 'BEL', 'DEU', 'NLD',
+    from Europe_utils import *
+    countries_ = [N0_to_3L('LV')]
+
+    reps_ = 500 #was 500
+    #Todo: read from config
+    #outputFolder = r"P:\osm_flood\network_analysis\igraph\{}"
+    outputFolder = r"P:\osm_flood\network_analysis\data\main_output\{}"
 
     running = RunPercolation(cntry_setup=cntrySetup, countries=countries_, reps=reps_, output_folder=outputFolder)
-    if sys.argv[1] == 'prep_par':
-        running.prep_par()
-    elif sys.argv[1] == 'run_par':
-        print("Using", sys.argv[2], "cores")
-        running.run_par(sys.argv[2])
-    else:
-        print("wrong input, use 'prep_par' or 'run_par (nr of cores)'")
+
+    running.prep_par()
+    running.run_par(3)
+    # if sys.argv[1] == 'prep_par':
+    #     running.prep_par()
+    # elif sys.argv[1] == 'run_par':
+    #     print("Using", sys.argv[2], "cores")
+    #     running.run_par(sys.argv[2])
+    # else:
+    #     print("wrong input, use 'prep_par' or 'run_par (nr of cores)'")
