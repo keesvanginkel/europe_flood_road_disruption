@@ -30,8 +30,10 @@ translate_cntr_codes = pd.read_csv(r"P:\osm_flood\network_analysis\igraph\europe
                                 delimiter=';').set_index('code3').to_dict(orient='dict')
 
 # set paths
+#Todo: add these to the config
 input_folder = r"P:\osm_flood\network_analysis\data"
-output_folder = r"P:\osm_flood\network_analysis\igraph\{}"
+#output_folder = r"P:\osm_flood\network_analysis\igraph\{}"
+output_folder = r"P:\osm_flood\network_analysis\data\main_output\{}"
 
 # parameters
 AoI_name = 'AoI_RP100y_unique'
@@ -40,7 +42,9 @@ weighing = 'time'  # time or distance
 
 # import files
 def import_graph(the_country, nuts_class='nuts3'):
-    networks_europe_path = os.path.join(input_folder, 'networks_intersect_hazard_elco_koks')
+    #todo: read from config
+    #networks_europe_path = os.path.join(input_folder, 'networks_intersect_hazard_elco_koks')
+    networks_europe_path = os.path.join(input_folder, 'networks_intersect_seconditer')
     edge_file = [os.path.join(networks_europe_path, f) for f in os.listdir(networks_europe_path) if
                 f == the_country + '-edges.feather'][0]
 
@@ -72,11 +76,16 @@ def import_graph(the_country, nuts_class='nuts3'):
     print(G.summary())
     return G
 
+from pathlib import Path
 
 def import_optimal_routes(the_country):
-    return pd.read_feather(os.path.join(output_folder.format(the_country),
-                     'optimal_routes_{}_{}.feather'.format(weighing, the_country)))
-
+    #Todo: read from config
+    folder = Path(r'P:\osm_flood\network_analysis\data\preproc_output')
+    file = folder / the_country / 'optimal_routes_{}_{}.feather'.format(weighing, the_country)
+    optimal_routes = pd.read_feather(file)
+    #return pd.read_feather(os.path.join(output_folder.format(the_country),
+    #             'optimal_routes_{}_{}.feather'.format(weighing, the_country)))
+    return optimal_routes
 
 def aoi_combinations(all_aois_list, nr_comb, nr_iterations):
     return [random.choices(all_aois_list, k=nr_comb) for i in range(nr_iterations)]
@@ -84,6 +93,7 @@ def aoi_combinations(all_aois_list, nr_comb, nr_iterations):
 
 def stochastic_network_analysis_phase1(G, nr_comb, nr_reps, country_code3, nuts_class, list_finished=None):
     """
+    #todo: update documentation
     This is part 1 of the old function. It determines which experiments we are planning to do.
 
     """
@@ -118,8 +128,9 @@ def stochastic_network_analysis_phase1(G, nr_comb, nr_reps, country_code3, nuts_
 
 def stochastic_network_analysis_phase2(tup):
     """
+    #todo: update documentation
     Input argument:
-        *tup* (tuple) = tuple of lenght 4, containing the the nr_comb and the unique i (ID) of the experiment
+        *tup* (tuple) = tuple of lenght 6, containing the the nr_comb and the unique i (ID) of the experiment
     """
     # read tuple
     nr_comb, aoi, i, country_name, country_code3, nutsClass = tup[0], tup[1], tup[2], tup[3], tup[4], tup[5]
@@ -182,4 +193,7 @@ def stochastic_network_analysis_phase2(tup):
 
     end = time.time()
     print('Nr combinations: {}, Experiment nr: {}, time elapsed: {}'.format(nr_comb, i, end - start))
+
+
+    #Todo: run test procedure when calling as __main__
 
