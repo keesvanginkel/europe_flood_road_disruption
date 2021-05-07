@@ -1,1 +1,7 @@
 visualisations
+.idea
+.ipynb_checkpoints
+scripts/.ipynb_checkpoints
+scripts/__pycache__
+data
+todo.txt
