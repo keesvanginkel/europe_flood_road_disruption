@@ -1,7 +1,7 @@
 from pathlib import Path
 import os
 import tqdm as tqdm
-from time import sleep
+import time as time
 
 to_eval = Path(r"P:\osm_flood\network_analysis\data\main_output")  # Path to evaluate
 assert to_eval.exists()
@@ -44,8 +44,8 @@ initial_finished = len(list(finished_p.glob('**/*.csv')))
 n_finished = initial_finished
 old_value = initial_finished
 with tqdm.tqdm(total=n_scheduled,initial=initial_finished) as pbar:
-    while n_finished <= n_scheduled:
-        sleep(10)
+    while n_finished < n_scheduled:
+        time.sleep(10)
         n_finished = len(list(finished_p.glob('**/*.csv')))
         increment = n_finished - old_value
         pbar.update(increment)

@@ -20,7 +20,8 @@ import igraph as ig
 import pygeos as pyg
 import pandas as pd
 import geopandas as gpd
-from network import nearest
+#from network import nearest
+from snkit.network import nearest
 import itertools
 import feather
 from shapely import wkt

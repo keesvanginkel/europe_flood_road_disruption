@@ -1,6 +1,11 @@
-{ "Explanation" : "This json file contains the paths to the directories where the in- and output files are located",
-  "Paths" : {
-	"country_results" : "D:\\Europe_percolation\\igraph_copy"  }
-	
-	
+{ "comment" : "This json file contains the paths to the directories where the in- and output files are located",
+  "paths" : {
+	"country_results" : "D:\\Europe_percolation\\igraph_copy" ,
+	"data" : "D:\\Python\\europe_flood_road_disruption\\data",
+	"output_data" : "D:\\Python\\europe_flood_road_disruption\\data\\output",
+	"output_images" : "D:\\Python\\europe_flood_road_disruption\\visualisations",
+	"NUTS_shapes" : "D:\\Europe_trade_disruptions\\NUTS-2_shapes\\NUTS_2016",
+	"graphs_folder" : "D:\\Europe_percolation\\temp_seconditer\\input",
+    "optimal_routes_folder_temp" : "D:\\Europe_percolation\\temp_seconditer\\output"
+  }
 	}

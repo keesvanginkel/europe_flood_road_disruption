@@ -7,6 +7,11 @@ Created on Tue Jan 14
 Part of a general tool for criticality analysis of networks.
 Visualized the connections between origin/destination pairs.
 
+
+Changelog
+Kees (26 jan):
+
+
 """
 
 import geopandas as gpd
@@ -15,13 +20,11 @@ import matplotlib.pyplot as plt
 import os
 import networkx as nx
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-# import network_functions as nf
-# import plotly.express as px
-# from plotly.offline import plot
+
 
 save_figs = r"D:\COACCH_paper\figures"
 
-
+#Is apparantly no longer used? Commented out below.
 def combine_finished_stochastic(finished_folder):
     """Combines the separate csv files create by the parallel processed stochastic results.
     Args:
