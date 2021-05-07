@@ -41,6 +41,7 @@ def combine_finished_stochastic(finished_folder):
             df = pd.concat([df, df_add], sort='False')
         df.to_csv(os.path.join(finished_folder, "aoi_{}.csv".format(folder.split(".")[0])))
 
+print('pause')
 
 def df_stochastic_results(folder):
     finished_folder = os.path.join(folder, 'finished')

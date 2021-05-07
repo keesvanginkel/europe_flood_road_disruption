@@ -120,4 +120,3 @@ if __name__ == '__main__':
         warnings.warn('Output data folder misses file country_codes.csv, NUTS-letter conversion function will not work.'.format(output_data))
 
     print(N0_to_3L(['BE','NL']))
-    print('ho es')

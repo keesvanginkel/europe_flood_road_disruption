@@ -1,0 +1,11 @@
+{ "comment" : "This json file contains the paths to the directories where the in- and output files are located, note the difference between files in and outside Git",
+  "paths" : {
+	"data" : "P:\\osm_flood\\network_analysis\\igraph\\europe_flood_road_disruption\\data",
+	"output_data" : "D:\\Python\\europe_flood_road_disruption\\data\\output",
+	"output_images" : "D:\\Python\\europe_flood_road_disruption\\visualisations",
+	"NUTS_shapes" : "P:\\osm_flood\\network_analysis\\data\\NUTS-files",
+	"graphs_folder" : "P:\\osm_flood\\network_analysis\\data\\networks_intersect_seconditer",
+	"preproc_output" : "P:\\osm_flood\\network_analysis\\data\\preproc_output",
+	"main_output" : "P:\\osm_flood\\network_analysis\\data\\main_output"
+  }
+	}

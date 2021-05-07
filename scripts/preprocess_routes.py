@@ -8,6 +8,7 @@ Part of a COACCH percolation analysis of European road networks.
 
 """
 
+#Todo: rename paths in this folder
 
 
 import os, sys

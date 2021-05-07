@@ -45,3 +45,10 @@ def highway_mapper():
         'tertiary' : 'tertiary',
         'tertiary_link' : 'tertiary'}
     return highway_mapper
+
+if __name__ == '__main__':
+    print('utils.py is running a test procedure')
+    print('Existence of config paths is tested')
+    config = load_config()
+    for key, path in config['paths'].items():
+        print(key, path, path.exists())
