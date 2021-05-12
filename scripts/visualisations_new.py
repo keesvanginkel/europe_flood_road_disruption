@@ -13,10 +13,77 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from utils import load_config
+import pdb as pdb
+
+# Everythin below  is a sort preprocessing step, before the actual plotting starts
+def aggregate_results_step1(ignore = [None]):
+    """
+    Function to aggregate the raw results of the percolation analysis
+    
+    Arguments:
+        *ignore* (list of countries) : list of countries that you don't want to analyse e.g. ['denmark','latvia']
+    
+    Effect:
+        Aggregates the .csv files to higher levels in three steps
+    """
+    
+    config = load_config()
+    country_results_folder = config['paths']['main_output']
+    #Example folder structure: country_results_folder/albania/finished/
+
+    #Step 1: for each country, summarize individual samples to results per combination
+    print('aggregate_results(): Starting step 1/3:')
+    countries_paths = [x for x in country_results_folder.iterdir() if x.is_dir()]
+    countries = [x.stem for x in countries_paths]
+    print('Identified {} countries'.format(len(countries)))
+    for path in countries_paths:
+        if path.stem in ignore:
+            print('ignoring {}'.format(path))
+        else:
+            print('Start aggregating {}'.format(path))
+            finished_folder = path / 'finished'
+            if not finished_folder.exists():
+                raise OSError(2, 'Cannot find the folder containing \
+                              the raw results of the percolation analysis:',
+                              '{}'.format(path))
+            combine_finished_stochastic(finished_folder)
+            print('{}: Aggregated raw pickles per experiment, to .csv per # combinations'.format(path.stem))
+
+def aggregate_results_step2(ignore = [None]):
+    """
+    Todo: improve docstring
+    
+    """
+    
+    #Step 2: for each country, summarize combinations in a dataframe
+    config = load_config()
+    country_results_folder = config['paths']['main_output']
+    
+    print('Starting step 2:')
+    countries_paths = [x for x in country_results_folder.iterdir() if x.is_dir()]
+    countries = [x.stem for x in countries_paths]
+    
+    
+    
+    folders = [df_stochastic_results(folder=country_results_folder / c / 'finished') for c in countries]
+    dict_dfs = dict(zip(countries, folders)) #keys are countries, values dataframes with results
+
+    #Step 3: Summarize the results of all countries
+    #folder_results = r'D:\COACCH_paper\data\output\{}'
+    print('Starting step 3')
+    # group the dataframes
+    for c in countries:
+        temp_df = dict_dfs[c]
+        temp_df['country'] = c.capitalize()
+        dict_dfs[c] = temp_df
+
+    df = pd.concat(list(dict_dfs.values()), sort=False)
+    df.to_csv(country_results_folder / 'all_combinations.csv')
 
 def combine_finished_stochastic(finished_folder):
     """Combines the separate csv files create by the parallel processed stochastic results.
-    Args:
+    
+    Arguments:
         input_path (string): path to the folder where the separate csv's are saved. e.g. 'albania/finished'
 
     Returns:
@@ -39,7 +106,7 @@ def combine_finished_stochastic(finished_folder):
                 df = pd.concat([df, df_add], sort='False')
             df.to_csv(finished_folder / "aoi_{}.csv".format(folder.stem))
 
-    print('Combine_finished_stochastic finished for {}'.format(finished_folder))
+        print('Combine_finished_stochastic finished for {}'.format(folder))
 
 def df_stochastic_results(folder):
     """
@@ -64,34 +131,7 @@ def df_stochastic_results(folder):
     df['AoI combinations'] = df['AoI combinations'].astype(int)
     return df
 
-# Everythin below  is a sort preprocessing step, before the actual plotting starts
-#if __name__ == '__main__':
-if False:
-    config = load_config()
-    country_results_folder = config['paths']['country_results']
-    #Example folder structure: country_results_folder/albania/finished/
 
-    #Step 1: for each country, summarize individual samples to results per combination
-    country = 'austria'
-    finished_folder = country_results_folder / country / 'finished'
-    #combine_finished_stochastic(finished_folder)
-
-    #Step 2: for each country, summarize combinations in a dataframe
-    countries = ['albania','austria','belgium']
-    folders = [df_stochastic_results(folder=country_results_folder / c / 'finished') for c in countries]
-    dict_dfs = dict(zip(countries, folders)) #keys are countries, values dataframes with results
-
-    #Step 3: Summarize the results of all countries
-    #folder_results = r'D:\COACCH_paper\data\output\{}'
-    folder_results = config['paths']['output_data']
-    # group the dataframes
-    for c in countries:
-        temp_df = dict_dfs[c]
-        temp_df['country'] = c.capitalize()
-        dict_dfs[c] = temp_df
-
-    df = pd.concat(list(dict_dfs.values()), sort=False)
-    df.to_csv(folder_results / 'all_combinations.csv')
 
 def boxplots_multiple_countries_v1(df,save=False):
     """ Frederique line 88-102
@@ -406,10 +446,16 @@ def main(config):
         *df_rel* (DataFrame) : results grouped by combi of relative AOI and country
     """
     print(' -------- main() starting --------')
-    folder_results = config['paths']['output_data']
+    folder_results = config['paths']['main_output']
 
     # READ SOURCE FILE
-    df = pd.read_csv((folder_results / 'all_combinations.csv'),index_col=0,sep=';')
+    csv_file = folder_results / 'all_combinations.csv'
+    if not csv_file.exists():
+        raise OSError(2, """Cannot find the file with the aggregated results, 
+                            maybe you need to run aggregate_results_step2() first!
+                            Missing: """, csv_file)
+
+    df = pd.read_csv((csv_file),index_col=0,sep=',')
     df = df.drop(columns=['Unnamed: 0.1', 'Unnamed: 0.1.1'])
     print('Succesfully loaded source file as dataframe, with columns:')
     print(df.columns)

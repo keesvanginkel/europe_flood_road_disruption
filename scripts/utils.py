@@ -1,6 +1,7 @@
 import os
 import json
 from pathlib import Path
+from shutil import copyfile
 
 
 def load_config():
@@ -45,3 +46,48 @@ def highway_mapper():
         'tertiary' : 'tertiary',
         'tertiary_link' : 'tertiary'}
     return highway_mapper
+
+
+
+def smart_AoI_copy(origin,destination,skip=[None]):
+    """
+    Copies the aggregated (step 1) AoI results
+    Rather than copying all individual experiments, this function copies the results per number of combinations (one level higher)
+    
+    Expects origin with these subfolders:
+        - {country}
+            - finished
+              - .csv files (copies these files)
+             (-) probably also has directories with the individual results, these are not copied
+    
+    Arguments:
+        *origin* (Path) : origin folder
+        *destination* (Path) : destination folder
+        
+    """
+    assert (origin.exists() and destination.exists())
+
+    origin_country_paths = [x for x in origin.iterdir() if x.is_dir()]
+    for p in origin_country_paths:
+        if p.stem in skip:
+            print('Not copying {}'.format(p.stem))
+            continue
+        else:
+            destdir = destination / p.stem / 'finished' #make subfolder country / finished in dest dir
+            destdir.mkdir(parents=True)
+            finished = p / 'finished' #folder where the aggregated AoI results should be located
+            csv_files = [x for x in finished.iterdir() if x.suffix == '.csv']
+            csv_aois = [int(x.stem.split('_')[1]) for x in csv_files]
+            print(p.stem,'has files for:',sorted(csv_aois) ,'combinations of AoI')
+            for sourcefile in csv_files:
+                destfile = destdir / sourcefile.name  
+                copyfile(sourcefile,destfile)
+            print('Copying for {} finished'.format(p.stem))
+
+### Example use:
+# origin = Path("P:\\osm_flood\\network_analysis\\igraph")
+# destination = Path("D:\\Europe_percolation\\combined_results\\combined_main_output")
+# skip = ['.idea','europe_flood_road_disruption','trails','figures']
+# skip.extend(['albania','austria','belgium','bulgaria','croatia','czechia','denmark'])
+# print(skip)
+# smart_AoI_copy(origin,destination,skip=skip)

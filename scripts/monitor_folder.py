@@ -45,7 +45,7 @@ n_finished = initial_finished
 old_value = initial_finished
 with tqdm.tqdm(total=n_scheduled,initial=initial_finished) as pbar:
     while n_finished < n_scheduled:
-        time.sleep(10)
+        time.sleep(120)
         n_finished = len(list(finished_p.glob('**/*.csv')))
         increment = n_finished - old_value
         pbar.update(increment)
