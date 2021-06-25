@@ -6,6 +6,6 @@
 	"NUTS_shapes" : "P:\\osm_flood\\network_analysis\\data\\NUTS-files",
 	"graphs_folder" : "P:\\osm_flood\\network_analysis\\data\\networks_intersect_seconditer",
 	"preproc_output" : "P:\\osm_flood\\network_analysis\\data\\preproc_output",
-	"main_output" : "P:\\osm_flood\\network_analysis\\data\\main_output"
+	"main_output" : "P:\\osm_flood\\network_analysis\\data\\main_output_moreruns"
   }
 	}
