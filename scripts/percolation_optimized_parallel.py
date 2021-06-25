@@ -1,16 +1,12 @@
-# -*- coding: utf-8 -*-
 """
 Created on 2-12-2020
-
 @author: Frederique de Groen
-
 Part of a COACCH criticality analysis of networks.
-
 """
 
 import os, sys
 
-sys.path.append(r"D:\COACCH_paper\europe_flood_road_disruption\scripts")
+sys.path.append(r"P:\osm_flood\network_analysis\igraph\europe_flood_road_disruption\scripts")
 
 import igraph as ig
 from preprocess_routes import graph_load
@@ -25,13 +21,16 @@ from tqdm import tqdm
 import feather
 import pickle
 
+from utils import load_config
+
 # translation between countrycodes (2- and 3-letter and country names)
-translate_cntr_codes = pd.read_csv(r"D:\COACCH_paper\europe_flood_road_disruption\data\country_codes.csv",
-                                delimiter=';').set_index('code3').to_dict(orient='dict')
+country_codes = load_config()['paths']['data'] / 'country_codes.csv'
+translate_cntr_codes = pd.read_csv(country_codes, delimiter=';').set_index('code3').to_dict(orient='dict')
 
 # set paths
 input_folder = r"D:\COACCH_paper\data"
 output_folder = r"D:\COACCH_paper\data\output\{}"
+
 
 # parameters
 AoI_name = 'AoI_RP100y_unique'
@@ -39,12 +38,12 @@ weighing = 'time'  # time or distance
 
 
 # import files
-def import_graph(the_country, nuts_class='nuts2'):
-    networks_europe_path = os.path.join(input_folder, 'networks_intersect_hazard_elco_koks')
+def import_graph(the_country, nuts_class='nuts3'):
+    networks_europe_path = load_config()['paths']['graphs_folder']
     edge_file = [os.path.join(networks_europe_path, f) for f in os.listdir(networks_europe_path) if
                 f == the_country + '-edges.feather'][0]
 
-    # read the network files from Elco Koks
+    # read the network files from Elco Koks, the edges files already contain the flood hazard data
     network = pd.read_feather(edge_file)
 
     # create a geometry column with shapely geometries
@@ -72,11 +71,21 @@ def import_graph(the_country, nuts_class='nuts2'):
     print(G.summary())
     return G
 
+from pathlib import Path
 
 def import_optimal_routes(the_country):
-    return pd.read_feather(os.path.join(output_folder.format(the_country),
-                     'optimal_routes_{}_{}.feather'.format(weighing, the_country)))
+    """
+    Load the optimal routes between NUTS-X regions, as calculated during the preprocessing step
+        *the_country* (string): Name of the country, should correspond to folder name in preproc_output
+    Returns:
+        *optimal_routes* (DataFrame) : dataframe with optimal_routes between NUTS-X regions
+    """
+    folder = Path(r'P:\osm_flood\network_analysis\data\preproc_output')
+    folder = load_config()['paths']['preproc_output']
+    file = folder / the_country / 'optimal_routes_{}_{}.feather'.format(weighing, the_country)
+    optimal_routes = pd.read_feather(file)
 
+    return optimal_routes
 
 def aoi_combinations(all_aois_list, nr_comb, nr_iterations):
     return [random.choices(all_aois_list, k=nr_comb) for i in range(nr_iterations)]
@@ -84,15 +93,32 @@ def aoi_combinations(all_aois_list, nr_comb, nr_iterations):
 
 def stochastic_network_analysis_phase1(G, nr_comb, nr_reps, country_code3, nuts_class, list_finished=None):
     """
-    This is part 1 of the old function. It determines which experiments we are planning to do.
-
+    This function creates a folder structure with the experiments that are to be done in the percolation analysis,
+    so that the actual experiments can be done using parallel processing
+    Arguments:
+        *G* (igraph Graph) : The network graph
+        *nr_comb* (int) : The number of AoIs to remove
+        *nr_reps* (in) : How often to repeat the AoI sampling, for the number of AoIs specified in nr_comb
+        *country_code3 (string) : 3letter country code
+        *nuts_class* (string) : can be 'nuts3' or 'nuts2'
+    Effect:
+        Creates a folder with the country name in 'main_output', with a subfolder 'scheduled',
+        with subsubfolders with the nr of AoIs to sample at the same time (i.e. the nr_comb)
+        and puts pickles in these folders
+        These pickles contain several variables needed to carry out that experiment
+    Returns: none
     """
+    #Todo: if everything works well: remove the old os.path stuff
     current_country = translate_cntr_codes['country'][country_code3].lower()  # The country that is analysed
     # print("\nCurrent iteration is for:", current_country)
 
-    newpath = os.path.join(output_folder.format(current_country), 'scheduled', str(nr_comb))
-    if not os.path.exists(newpath):
-        os.makedirs(newpath)
+    output_folder = load_config()['paths']['main_output']
+    assert output_folder.exists()
+    #newpath = os.path.join(output_folder.format(current_country), 'scheduled', str(nr_comb))
+    newpath = output_folder / current_country / 'scheduled' / str(nr_comb)
+    if not newpath.exists(): newpath.mkdir(parents=True)
+    #if not os.path.exists(newpath):
+    #    os.makedirs(newpath)
 
     all_aois = list(set([item for sublist in G.es[AoI_name] for item in sublist if item != 0 and item == item]))
 
@@ -111,21 +137,26 @@ def stochastic_network_analysis_phase1(G, nr_comb, nr_reps, country_code3, nuts_
     for i, aoi in enumerate(list_aois):
         # i indicates the index of the experiments
         # each experiment is a unique combination of AoI's disrupted at the same time
-        filename = os.path.join(output_folder.format(current_country), 'scheduled', str(nr_comb), str(i) + '.pkl')
+        #filename = os.path.join(output_folder.format(current_country), 'scheduled', str(nr_comb), str(i) + '.pkl')
+        filename = output_folder / current_country / 'scheduled' / str(nr_comb) / (str(i) + '.pkl')
         with open(filename, 'wb') as f:
             pickle.dump((nr_comb, aoi, i, current_country, country_code3, nuts_class), f)
 
 
 def stochastic_network_analysis_phase2(tup):
     """
+    #todo: update documentation
     Input argument:
-        *tup* (tuple) = tuple of lenght 4, containing the the nr_comb and the unique i (ID) of the experiment
+        *tup* (tuple) = tuple of lenght 6, containing the the nr_comb and the unique i (ID) of the experiment
     """
+    output_folder = load_config()['paths']['main_output']
+
     # read tuple
     nr_comb, aoi, i, country_name, country_code3, nutsClass = tup[0], tup[1], tup[2], tup[3], tup[4], tup[5]
 
     # SKIP IF NR of COMBINATIONS OF AOI IS ALREADY FINISHED BY CHECKING IF OUTPUT FILE IS ALREADY CREATED
-    result_path = os.path.join(output_folder.format(country_name), 'finished', str(nr_comb))
+    #result_path = os.path.join(output_folder.format(country_name), 'finished', str(nr_comb))
+    result_path = output_folder / country_name / 'finished' / str(nr_comb)
 
     if not os.path.exists(result_path):
         os.makedirs(result_path)
@@ -183,3 +214,5 @@ def stochastic_network_analysis_phase2(tup):
     end = time.time()
     print('Nr combinations: {}, Experiment nr: {}, time elapsed: {}'.format(nr_comb, i, end - start))
 
+
+    #Todo: run test procedure when calling as __main__
