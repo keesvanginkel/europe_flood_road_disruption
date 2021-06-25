@@ -23,8 +23,8 @@ import igraph as ig
 import pygeos as pyg
 import pandas as pd
 import geopandas as gpd
-#from network import nearest
-from snkit.network import nearest
+from network import nearest #trails import
+#from snkit.network import nearest
 
 import itertools
 import feather
@@ -209,7 +209,7 @@ def optimal_routes(cntry):
     # define in- and output folders
     #input_folder = r"P:\osm_flood\network_analysis\data"
     #output_folder = r"P:\osm_flood\network_analysis\data\output\"
-    output_folder = config['paths']['graphs_output_folder']
+    output_folder = config['paths']['preproc_output']
 
     # Location of graphs of all countries in Europe, saved in *.feather format
     networks_europe_path = config['paths']['graphs_folder']
@@ -397,7 +397,7 @@ def optimal_routes(cntry):
     nodes.geometry = pyg.from_wkb(nodes.geometry)
 
     # TODO: Change to NUTS-2 if necessary
-    #nuts_class = 'nuts3'
+    nuts_class = 'nuts2'
 
     # find the nodes that are closest to the centroids of the NUTS-3 regions
     node_ids_od_pairs = prepare_possible_OD_EU(selected_centroids, nodes, tolerance=0.5) #was 0.1
@@ -541,14 +541,16 @@ if __name__ == '__main__':
     # countries = ['ALB', 'AUT', 'BEL', 'BGR', 'CHE', 'CZE', 'DEU', 'DNK', 'ESP', 'FIN', 'FRA', 'GBR', 'GIB', 'GRC',
     #              'HRV', 'HUN', 'IRL', 'ITA', 'LUX', 'NLD', 'NOR', 'POL', 'PRT', 'ROU', 'SRB', 'SVK', 'SWE']
 
-    countries = ['EST', 'LTU', 'LVA', 'MKD','SVN','SWE','DNK']
+    #countries = ['EST', 'LTU', 'LVA', 'MKD','SVN','SWE','DNK']
+
+    countries = ['UK']
 
     from random import shuffle
     shuffle(countries)
     print(countries)
 
     #Single run
-    optimal_routes('SWE')
+    optimal_routes('UK')
 
     #Multiple runs (sequential)
     #for country in countries:
