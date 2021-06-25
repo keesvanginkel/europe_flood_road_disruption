@@ -5,3 +5,5 @@ scripts/.ipynb_checkpoints
 scripts/__pycache__
 data
 todo.txt
+config.json
+conf-Copy1.json
