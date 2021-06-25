@@ -40,6 +40,7 @@ class RunPercolation:
         cntries_todo = [self.cntry_setup.loc[self.cntry_setup['code3'] == x, 'country'].iloc[0].lower() for x in cntries_todo]
         # shuffle(cntries_todo)
         for ctr in cntries_todo:
+            print('Starting run_par() for countries {}'.format(ctr))
             # find all the folders, containing the scheduled combinations
             folders = os.listdir(
                 os.path.join(self.output_folder.format(ctr), 'scheduled'))  # folder correspond to items of the combs_list defined before
@@ -47,16 +48,17 @@ class RunPercolation:
             todo = []  # list of all tuples (combination, i(experiment ID), country name, country code (3 letters))
             for comb in folders:
                 pkls = os.listdir(os.path.join(self.output_folder.format(ctr), 'scheduled', comb))  # list of pickles in each folder
-                for pkl in pkls[:500]:  # If lower than scheduled, limit to 200 iterations for now
+                for pkl in pkls:  # If lower than scheduled, limit to pkls[:200] 200 iterations for now
                     schedule_file = os.path.join(self.output_folder.format(ctr), 'scheduled', comb, pkl.split('.')[0] + '.pkl')
                     with open(schedule_file, 'rb') as f:
                         todo.append(pickle.load(f))
 
             shuffle(todo)
-            # print(todo[0:10])  # just to check if we indeed shuffled
+            print(todo[0:10])  # just to check if we indeed shuffled
             print("In total we will do {} mini-processes".format(len(todo)))
 
             # Carry out the scheduled experiments
+            print('Run_par() starting scheduled experiments for {}'.format(ctr))
             with Pool(int(nr_cores)) as pool:
                 pool.map(stochastic_network_analysis_phase2, todo, chunksize=1)
             print('Percolation analysis finished for:', ctr)
@@ -64,8 +66,8 @@ class RunPercolation:
 
 if __name__ == '__main__':
     #countries_ = N0_to_3L(['LT','LV','DK','MK','SI']) #Provide list of 3l-codes
-    countries_ = [N0_to_3L('LT')]
-    reps_ = 500  #Repetitions per #AoIs
+    countries_ = [N0_to_3L('FR')]
+    reps_ = 500 #Repetitions per #AoIs
 
     #Read the set-up per country
     config = load_config()
