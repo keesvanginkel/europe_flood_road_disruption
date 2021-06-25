@@ -1,7 +1,9 @@
 """
-Created on 2-12-2020
-@author: Frederique de Groen
-Part of a COACCH criticality analysis of networks.
+Created december 2020 - december 2021
+@author: Frederique de Groen, Kees van Ginkel, Elco Koks
+Partly based on the packages 'criticality tool' (Frederique) and 'TRAILS' (Elco)
+=======
+# -*- coding: utf-8 -*-
 """
 
 import os, sys
@@ -24,17 +26,18 @@ import pickle
 from utils import load_config
 
 # translation between countrycodes (2- and 3-letter and country names)
-country_codes = load_config()['paths']['data'] / 'country_codes.csv'
+config = load_config()
+country_codes = config['paths']['data'] / 'country_codes.csv'
 translate_cntr_codes = pd.read_csv(country_codes, delimiter=';').set_index('code3').to_dict(orient='dict')
 
 # set paths
-input_folder = r"D:\COACCH_paper\data"
-output_folder = r"D:\COACCH_paper\data\output\{}"
-
+input_folder = r"D:\COACCH_paper\data" #TODO: change to config
+#output_folder = r"P:\osm_flood\network_analysis\data\main_output\{}"
+output_folder = config['paths']['main_output']
 
 # parameters
-AoI_name = 'AoI_RP100y_unique'
-weighing = 'time'  # time or distance
+AoI_name = 'AoI_RP100y_unique' #Todo: move these settings to config
+weighing = 'time'  # time or distance #Todo: move these settings to config
 
 
 # import files
@@ -77,6 +80,7 @@ def import_optimal_routes(the_country):
     """
     Load the optimal routes between NUTS-X regions, as calculated during the preprocessing step
         *the_country* (string): Name of the country, should correspond to folder name in preproc_output
+
     Returns:
         *optimal_routes* (DataFrame) : dataframe with optimal_routes between NUTS-X regions
     """
@@ -95,17 +99,20 @@ def stochastic_network_analysis_phase1(G, nr_comb, nr_reps, country_code3, nuts_
     """
     This function creates a folder structure with the experiments that are to be done in the percolation analysis,
     so that the actual experiments can be done using parallel processing
+
     Arguments:
         *G* (igraph Graph) : The network graph
         *nr_comb* (int) : The number of AoIs to remove
         *nr_reps* (in) : How often to repeat the AoI sampling, for the number of AoIs specified in nr_comb
         *country_code3 (string) : 3letter country code
         *nuts_class* (string) : can be 'nuts3' or 'nuts2'
+
     Effect:
         Creates a folder with the country name in 'main_output', with a subfolder 'scheduled',
         with subsubfolders with the nr of AoIs to sample at the same time (i.e. the nr_comb)
         and puts pickles in these folders
         These pickles contain several variables needed to carry out that experiment
+
     Returns: none
     """
     #Todo: if everything works well: remove the old os.path stuff
@@ -213,6 +220,7 @@ def stochastic_network_analysis_phase2(tup):
 
     end = time.time()
     print('Nr combinations: {}, Experiment nr: {}, time elapsed: {}'.format(nr_comb, i, end - start))
+
 
 
     #Todo: run test procedure when calling as __main__

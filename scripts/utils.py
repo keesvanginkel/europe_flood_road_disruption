@@ -4,6 +4,7 @@ from pathlib import Path
 from shutil import copyfile
 
 
+
 def load_config():
     """
     Read config.json
@@ -47,8 +48,6 @@ def highway_mapper():
         'tertiary_link' : 'tertiary'}
     return highway_mapper
 
-
-
 def smart_AoI_copy(origin,destination,skip=[None]):
     """
     Copies the aggregated (step 1) AoI results
@@ -91,3 +90,11 @@ def smart_AoI_copy(origin,destination,skip=[None]):
 # skip.extend(['albania','austria','belgium','bulgaria','croatia','czechia','denmark'])
 # print(skip)
 # smart_AoI_copy(origin,destination,skip=skip)
+
+if __name__ == '__main__':
+    print('utils.py is running a test procedure')
+    print('Existence of config paths is tested')
+    config = load_config()
+    for key, path in config['paths'].items():
+        print(key, path, path.exists())
+

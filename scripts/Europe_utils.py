@@ -72,6 +72,7 @@ def country_names(country_codes):
     if unpack: sel = sel[0]
     return sel
 
+
 def country_code_from_name(country_names,l3=False):
     """2 letter ['BE'] or 3 letter codes ['BEL'] from country names
     Accepts string or list of strings e.g, 'Serbia' or ['Belgium','Slovakia']
@@ -111,7 +112,7 @@ def ignore_countries():
     countries.append('TR') #outside flood hazard domain
     return countries
     
-    
+
 def NUTS_3_remote(**kwargs):
     """
     Returns a list with remote NUTS-3 regions you probably don't want to plot
@@ -219,3 +220,4 @@ if __name__ == '__main__':
         warnings.warn('Output data folder misses file country_codes.csv, NUTS-letter conversion function will not work.'.format(output_data))
 
     print(N0_to_3L(['BE','NL']))
+
