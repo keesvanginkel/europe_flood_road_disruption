@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 ;code2;nr_nuts;nr_routes;country;code3
 0;AL;3;3;Albania;ALB
 1;AT;9;36;Austria;AUT
@@ -37,43 +36,3 @@
 34;SK;4;6;Slovakia;SVK
 35;TR;26;325;Turkey;TUR
 36;UK;41;820;United Kingdom;GBR
-=======
-,code2,nr_nuts,nr_routes,country,code3
-0,AL,3,3,Albania,ALB
-1,AT,9,36,Austria,AUT
-2,BE,11,55,Belgium,BEL
-3,BG,6,15,Bulgaria,BGR
-4,CH,7,21,Switzerland,CHE
-5,CY,1,0,Cyprus,CYP
-6,CZ,8,28,Czechia,CZE
-7,DE,38,703,Germany,DEU
-8,DK,5,10,Denmark,DNK
-9,EE,1,0,Estonia,EST
-10,EL,13,78,Greece,GRC
-11,ES,19,171,Spain,ESP
-12,FI,5,10,Finland,FIN
-13,FR,27,351,France,FRA
-14,HR,2,1,Croatia,HRV
-15,HU,8,28,Hungary,HUN
-16,IE,3,3,Ireland,IRL
-17,IS,1,0,Iceland,ISL
-18,IT,21,210,Italy,ITA
-19,LI,1,0,Liechtenstein,LIE
-20,LT,2,1,Lithuania,LTU
-21,LU,1,0,Luxembourg,LUX
-22,LV,1,0,Latvia ,LVA
-23,ME,1,0,Montenegro,MNE
-24,MK,1,0,Macedonia,MKD
-25,MT,1,0,Malta,MLT
-26,NL,12,66,Netherlands,NLD
-27,NO,7,21,Norway,NOR
-28,PL,17,136,Poland,POL
-29,PT,7,21,Portugal,PRT
-30,RO,8,28,Romania,ROU
-31,RS,4,6,Serbia,SRB
-32,SE,8,28,Sweden,SWE
-33,SI,2,1,Slovenia,SVN
-34,SK,4,6,Slovakia,SVK
-35,TR,26,325,Turkey,TUR
-36,UK,41,820,United Kingdom,GBR
->>>>>>> remotes/origin/finalizing_missing
