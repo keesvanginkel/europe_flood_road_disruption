@@ -3,7 +3,7 @@ import os
 import tqdm as tqdm
 import time as time
 
-to_eval = Path(r"P:\osm_flood\network_analysis\data\main_output")  # Path to evaluate
+to_eval = Path(r"P:\osm_flood\network_analysis\data\main_output_moreruns")  # Path to evaluate
 assert to_eval.exists()
 
 countries = list(to_eval.glob('*'))

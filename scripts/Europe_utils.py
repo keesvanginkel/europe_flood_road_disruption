@@ -72,6 +72,36 @@ def country_names(country_codes):
     if unpack: sel = sel[0]
     return sel
 
+def country_code_from_name(country_names,l3=False):
+    """2 letter ['BE'] or 3 letter codes ['BEL'] from country names
+    Accepts string or list of strings e.g, 'Serbia' or ['Belgium','Slovakia']
+    
+    Arguments:
+        *country_names* (string or list of strings) : country names
+        *l3* (Boolean) : return 3l-code; default = False -> returns 2l-code
+        
+    Returns
+        *sel* (string or list of strings) : 2l or 3l codes
+    """
+
+    if True:
+        data = config['paths']['data']
+        df = pd.read_csv((data / 'country_codes.csv'), delimiter=';')
+        df_3l = df['country']
+
+        if l3:
+            code_col = 'code3' #return 3l code
+        else:
+            code_col = 'code2' #return 2l code
+
+        unpack = False
+        if not isinstance(country_names, list):
+            country_names = [country_names]
+            unpack = True
+        sel = list(df.loc[df.country.isin(country_names)][code_col])
+        if unpack: sel = sel[0]
+    return sel
+
 def ignore_countries():
     """
     Returns a list of countries (NUTS-0 codes) that are not included in the analysis
@@ -117,6 +147,66 @@ def NUTS_3_remote(**kwargs):
 
     return l
 
+def NUTS_3_islands():
+    """Filter out additional Islands, which are not included in NUTS_3_remote()
+    
+    Returns a list with NUTS-3 regions you probably do not want to include in a road network analysis
+    """
+    islands = ['FRM01','FRM02'] #Corsica
+    return islands
+
+def create_gridlines(ps,ms,point_spacing=1000):
+    """
+    Create GeoSeries containing parallels in WGS84 projection.
+    
+    Arguments:
+        *ps* (list) - Parallel coordinates (degrees) of the lines to plot (e.g. [40,50,60,70])
+        *ms* (list) - Meridian coordinates (degrees) of the lines to plot (e.g. [-30,-20,-10,0,10,20,30,40,50,60,70])
+        *pointspacing* (integer) - Number of points to create (to draw smooth line) (e.g. 100)
+    
+    Returns:
+        *P_series,M_series* (Geopandas GeoSeries) - Contains the parallels and meridians
+    """
+    import numpy as np
+    import geopandas as gpd 
+    from shapely.geometry import LineString
+    
+    #create parallels
+    Parallels = []
+    start = ms[0]
+    end = ms[-1]
+    x_values = np.linspace(start,end,point_spacing)
+
+    for p in ps:
+        Points = []
+        for x in x_values:
+            point = (x,p)
+            Points.append(point)
+        Parallel = LineString(Points)
+        Parallels.append(Parallel)
+
+    P_series = gpd.GeoSeries(Parallels,crs='EPSG:4326')
+    
+
+    #create meridians
+    Meridians = []
+    start = ps[0]
+    end = ps[-1]
+    y_values = np.linspace(start,end,point_spacing)
+
+    for m in ms:
+        Points = []
+        for y in y_values:
+            point = (m,y)
+            Points.append(point)
+        Meridian = LineString(Points)
+        Meridians.append(Meridian)
+
+    M_series = gpd.GeoSeries(Meridians,crs='EPSG:4326')
+    
+    return P_series,M_series
+
+
 if __name__ == '__main__':
     #print(config)
 
@@ -129,4 +219,3 @@ if __name__ == '__main__':
         warnings.warn('Output data folder misses file country_codes.csv, NUTS-letter conversion function will not work.'.format(output_data))
 
     print(N0_to_3L(['BE','NL']))
-    print('ho es')
