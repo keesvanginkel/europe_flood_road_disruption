@@ -37,6 +37,7 @@ from pathos.multiprocessing import Pool
 import warnings
 
 from utils import load_config
+from Europe_utils import NUTS_2_islands
 
 #Suppress pandas SettingWithCopyWArning
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -253,8 +254,16 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time'):
 
     # select the centroids that are in the country that is analysed
     # discard the centroids of the small islands that are not reachable from mainland Europe
-    selected_centroids = centroids.loc[(centroids['CNTR_CODE'] == translate_cntr_codes['code2'][cntry]) &
+    if nuts_class == 'nuts3':
+        overseas = overseas
+        selected_centroids = centroids.loc[(centroids['CNTR_CODE'] == translate_cntr_codes['code2'][cntry]) &
                                        (~centroids['NUTS_ID'].isin(overseas))]
+    if nuts_class == 'nuts2':
+        overseas = NUTS_2_islands()
+        selected_centroids = centroids.loc[(centroids['CNTR_CODE'] == translate_cntr_codes['code2'][cntry]) &
+                                       (~centroids['NUTS_ID'].isin(overseas))]
+        print(list(selected_centroids['NUTS_ID'].values))
+
     ### CODE OF FREDERIQUE (ORIGINAL)
     # try:
     #     selected_centroids['geometry'] = selected_centroids['geometry'].apply(pyg.from_wkt)
@@ -399,9 +408,6 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time'):
     nodes = feather.read_dataframe(edge_file.replace("-edges", "-nodes"))
     nodes.geometry = pyg.from_wkb(nodes.geometry)
 
-    # TODO: Change to NUTS-2 if necessary
-    #nuts_class = 'nuts2'
-
     # find the nodes that are closest to the centroids of the NUTS-3 regions
     node_ids_od_pairs = prepare_possible_OD_EU(selected_centroids, nodes, tolerance=0.5) #was 0.1
     if len(node_ids_od_pairs) != len(selected_centroids):
@@ -439,8 +445,8 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time'):
     #combinations_csv = r"P:\osm_flood\network_analysis\igraph\europe_flood_road_disruption\data\nuts3_combinations_completeness.csv"
     #Todo: change path (remove completeness)
     #Todo: make sure it does not add empty columns
-    combinations_csv = config['paths']['data'] / "{}_combinations_completeness.csv".format(nuts_class)
-    df = pd.read_csv(combinations_csv,sep=';')
+    combinations_csv = config['paths']['data'] / "{}_combinations.csv".format(nuts_class)
+    df = pd.read_csv(combinations_csv,sep=';') #results in error later on? ,index_col=0
     nr_optimal_routes = df.loc[df['code3'] == cntry, 'nr_routes'].iloc[0]
     df.loc[df['code3'] == cntry, 'aoi_combinations'] = " ".join(list_combinations)
     df.to_csv(combinations_csv,sep=';')
@@ -450,8 +456,9 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time'):
                                             'v_ids', weighing, 'e_ids', 'geometry'],
                                    geometry='geometry', crs='epsg:3035')
 
+
     # create the routes between all OD pairs
-    for o, d in tqdm(itertools.combinations(node_ids_od_pairs, 2), desc='NUTS-3 optimal routes {}'.format(current_country)):
+    for o, d in tqdm(itertools.combinations(node_ids_od_pairs, 2), desc='NUTS optimal routes {}'.format(current_country)):
         # calculate the length of the optimal route
         # now the graph is treated as directed, make mode=ig.ALL to treat as undirected
 
@@ -553,7 +560,7 @@ if __name__ == '__main__':
     #print(countries)
 
     #Single run
-    optimal_routes('GBR',nuts_class='nuts2')
+    optimal_routes('ITA',nuts_class='nuts2')
 
     #Multiple runs (sequential)
     #for country in countries:

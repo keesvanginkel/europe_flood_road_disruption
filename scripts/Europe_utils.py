@@ -152,8 +152,22 @@ def NUTS_3_islands():
     """Filter out additional Islands, which are not included in NUTS_3_remote()
     
     Returns a list with NUTS-3 regions you probably do not want to include in a road network analysis
+
+    Todo: sync with preprocess_routes.py line 42-63 (overseas = [])
     """
-    islands = ['FRM01','FRM02'] #Corsica
+    islands = ['FRM01','FRM02'] #Corse
+    islands.extend(['UKN06','UKN07','UKN08','UKN09','UKN10','UKN11','UKN12',
+                    'UKN13','UKN14','UKN15','UKN16']) #Northern Island, not connected to mainland UK
+    islands.extend(['ITG25','ITG26','ITG27','ITG28','ITG29','ITG2A','ITG2B','ITG2C']) #IT Sardegna
+    islands.extend(['ITG11','ITG12','ITG13','ITG14','ITG15','ITG16','ITG17','ITG18','ITG19']) #IT Sicilia
+    return islands
+
+def NUTS_2_islands():
+    """List of islands on NUTS-2 level, which are not included in NUTS_2_remote()
+    """
+    islands = ["FRM0"] #Corse
+    islands.extend(['UKN0']) #Northern island
+    islands.extend(['ITG1','ITG2']) #Sicilia and Sardegna
     return islands
 
 def create_gridlines(ps,ms,point_spacing=1000):
