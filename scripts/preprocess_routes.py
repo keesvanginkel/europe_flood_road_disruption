@@ -190,19 +190,22 @@ def gdf_to_shp(gdf, result_shp):
 #Todo: NuTS2/NUTS3 should not be hardcoded, but given to the function
 #Todo: fix issue that the csv file gets a dummy col after each iteration :).
 #Todo: check if there are routes with length 0
-def optimal_routes(cntry):
+def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time'):
     """
     Preprocessing: finds the optimal routes between the NUTS-3 or NUTS-2 regions in a country
 
-    :param cntry:
+    Parameters:
+     *cntry* (string) : 3-letter code of the country
+     *nuts_class* (string) : 'nuts2' or 'nuts3' (default)
+     *weighing* (string) : 'time' (or distance?)
+
     :return:
 
     Requires
      - feather files with edges and nodes of the road network of the country: in output_folder
      - feather file with the centroids of the NUTS2 or NUTS-3 regions in the country
     """
-    nuts_class = 'nuts3'
-
+    #nuts_class = 'nuts2'
 
     config = load_config()
 
@@ -223,7 +226,7 @@ def optimal_routes(cntry):
     translate_cntr_codes = pd.read_csv(country_codes, delimiter=';').set_index('code3').to_dict(orient='dict')
 
     # set the weighing (time or distance)
-    weighing = 'time'
+    #weighing = 'time'
 
     # cntry_code = network_files[i].split('-')[0].split('\\')[-1]
     current_country = translate_cntr_codes['country'][cntry].lower()
@@ -397,7 +400,7 @@ def optimal_routes(cntry):
     nodes.geometry = pyg.from_wkb(nodes.geometry)
 
     # TODO: Change to NUTS-2 if necessary
-    nuts_class = 'nuts2'
+    #nuts_class = 'nuts2'
 
     # find the nodes that are closest to the centroids of the NUTS-3 regions
     node_ids_od_pairs = prepare_possible_OD_EU(selected_centroids, nodes, tolerance=0.5) #was 0.1
@@ -408,7 +411,7 @@ def optimal_routes(cntry):
 
 
     for n_id, nuts_code in node_ids_od_pairs:
-        nodes.loc[nodes['id'] == n_id, nuts_class] = nuts_code  # Not per se nuts3, can also be nuts2
+        nodes.loc[nodes['id'] == n_id, nuts_class] = nuts_code  # Can be nuts2 or nuts3
 
     # Add the nodes to the graph
     G.add_vertices(len(nodes))
@@ -436,7 +439,7 @@ def optimal_routes(cntry):
     #combinations_csv = r"P:\osm_flood\network_analysis\igraph\europe_flood_road_disruption\data\nuts3_combinations_completeness.csv"
     #Todo: change path (remove completeness)
     #Todo: make sure it does not add empty columns
-    combinations_csv = config['paths']['data'] / "nuts3_combinations_completeness.csv"
+    combinations_csv = config['paths']['data'] / "{}_combinations_completeness.csv".format(nuts_class)
     df = pd.read_csv(combinations_csv,sep=';')
     nr_optimal_routes = df.loc[df['code3'] == cntry, 'nr_routes'].iloc[0]
     df.loc[df['code3'] == cntry, 'aoi_combinations'] = " ".join(list_combinations)
@@ -543,14 +546,14 @@ if __name__ == '__main__':
 
     #countries = ['EST', 'LTU', 'LVA', 'MKD','SVN','SWE','DNK']
 
-    countries = ['UK']
+    #countries = ['GBR']
 
     from random import shuffle
-    shuffle(countries)
-    print(countries)
+    #shuffle(countries)
+    #print(countries)
 
     #Single run
-    optimal_routes('UK')
+    optimal_routes('GBR',nuts_class='nuts2')
 
     #Multiple runs (sequential)
     #for country in countries:
