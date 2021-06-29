@@ -5,7 +5,7 @@ from random import shuffle
 import pickle
 
 #Todo: fix this by giving package the appropriate name
-sys.path.append(r"P:\osm_flood\network_analysis\igraph\europe_flood_road_disruption\scripts")
+#sys.path.append(r"P:\osm_flood\network_analysis\igraph\europe_flood_road_disruption\scripts")
 from percolation_optimized_parallel import stochastic_network_analysis_phase1, stochastic_network_analysis_phase2, import_graph
 from utils import load_config
 from Europe_utils import *
@@ -23,8 +23,8 @@ class RunPercolation:
         print('prep_par(), preparing pickles for parallel processing for ',len(self.countries), 'countries')
         for ctr in self.countries:
             combinations = [int(x) for x in self.cntry_setup.loc[self.cntry_setup['code3'] == ctr, 'aoi_combinations'].iloc[0].split(' ')]
-            if ctr in ['BEL', 'DEU', 'NLD']:
-                # For Belgium, Germany and the Netherlands we are using the NUTS-2 classification
+            if ctr in ['BEL', 'DEU', 'NLD','ITA','GBR']:
+                # For Belgium, Germany and the Netherlands, Italy and UK we are using the NUTS-2 classification
                 nuts_class = 'nuts2'
             else:
                 # For the other countries we use the NUTS-3 classification
@@ -73,12 +73,13 @@ class RunPercolation:
 
 if __name__ == '__main__':
     #countries_ = N0_to_3L(['LT','LV','DK','MK','SI']) #Provide list of 3l-codes
-    countries_ = [N0_to_3L('FR')]
+    countries_ = [N0_to_3L('UK')]
+    nuts_level = 'nuts2'
     reps_ = 500 #Repetitions per #AoIs
 
     #Read the set-up per country
     config = load_config()
-    cntrySetup_path = config['paths']['data'] / 'nuts3_combinations.csv'
+    cntrySetup_path = config['paths']['data'] / '{}_combinations.csv'.format(nuts_level)
     if not cntrySetup_path.exists():
         raise OSError(2, 'Cannot find the file prescribing the AoI sampling:', '{}'.format(cntrySetup_path))
     else: print('Reading the AoI sampling procedure from: {}'.format(cntrySetup_path))
@@ -90,6 +91,8 @@ if __name__ == '__main__':
 
     #running.prep_par()
     running.run_par(4)
+    #todo: constrain running
+
     # if sys.argv[1] == 'prep_par':
     #     running.prep_par()
     # elif sys.argv[1] == 'run_par':
