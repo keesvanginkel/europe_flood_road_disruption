@@ -5,13 +5,13 @@ from shutil import copyfile
 
 
 
-def load_config():
+def load_config(file='config.json'):
     """
-    Read config.json
+    Read config.json (or an alternative file)
     NOTE: make sure your working directory is set to the highest level folder in the directory
 
     Arguments:
-        No arguments
+        *file* (string) : pathname of file located in working directory (default: config.json)
 
     Returns:
         *config* (dict) : Dict with structure:
@@ -20,7 +20,7 @@ def load_config():
                       [another key]
     @author: Kees van Ginkel
     """
-    config_path = Path(__file__).parents[1] / 'config.json'
+    config_path = Path(__file__).parents[1] / file
 
     with open(config_path, 'r') as config_fh:
         config = json.load(config_fh)
