@@ -6,6 +6,6 @@
 	"NUTS_shapes" : "D:\\Europe_trade_disruptions\\NUTS-2_shapes\\NUTS_2016",
 	"graphs_folder" : "D:\\Europe_percolation\\frederiques_networks",
     "preproc_output" : "D:\\Europe_percolation\\combined_results\\combined_preproc_output",
-	"main_output" : "P:\\osm_flood\\network_analysis\\data\\main_output_P_France_Italy"
+	"main_output" : "D:\\Europe_percolation\\combined_results\\combined_main_output"
   }
 	}
