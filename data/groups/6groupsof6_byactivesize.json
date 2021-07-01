@@ -1,0 +1,1 @@
+{"info": "6 groups of 5 countries; sorted by country area size, only including -active- area (NUTS-3 which centroid is connected to main graph)", "groups": {"0": ["SI", "MK", "AL", "BE", "NL"], "1": ["CH", "DK", "EE", "SK", "HR"], "2": ["LV", "LT", "IE", "RS", "CZ"], "3": ["AT", "PT", "HU", "BG", "EL"], "4": ["UK", "RO", "IT", "PL", "NO"], "5": ["FI", "DE", "SE", "ES", "FR"]}}
