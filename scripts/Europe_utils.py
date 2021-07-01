@@ -151,15 +151,24 @@ def NUTS_3_remote(**kwargs):
 def NUTS_3_islands():
     """Filter out additional Islands, which are not included in NUTS_3_remote()
     
-    Returns a list with NUTS-3 regions you probably do not want to include in a road network analysis
+    Returns a list with NUTS-3 regions you probably do not want to include in a road network analysis but still want
+    to plot as part of the country (these are not so super remote as the NUTS-3 remote functions)
 
     Todo: sync with preprocess_routes.py line 42-63 (overseas = [])
     """
     islands = ['FRM01','FRM02'] #Corse
     islands.extend(['UKN06','UKN07','UKN08','UKN09','UKN10','UKN11','UKN12',
                     'UKN13','UKN14','UKN15','UKN16']) #Northern Island, not connected to mainland UK
+    islands.extend(['UKM66','UKM65','UKM64'])
     islands.extend(['ITG25','ITG26','ITG27','ITG28','ITG29','ITG2A','ITG2B','ITG2C']) #IT Sardegna
     islands.extend(['ITG11','ITG12','ITG13','ITG14','ITG15','ITG16','ITG17','ITG18','ITG19']) #IT Sicilia
+    islands.extend(['EL307', 'EL411', 'EL412', 'EL413', 'EL421', 'EL422',
+                    'EL431', 'EL432', 'EL433', 'EL434', #Creta
+                    'EL621', 'EL622', 'EL623'])  # Greece
+    islands.extend(['ES531', 'ES532', 'ES533']) # Spain: Mailorca et al.
+    islands.extend(['HR037']) # Croatia
+    islands.extend(['FI200'])  # Finland
+    islands.extend(['SE214'])  # Sweden
     return islands
 
 def NUTS_2_islands():
@@ -168,6 +177,7 @@ def NUTS_2_islands():
     islands = ["FRM0"] #Corse
     islands.extend(['UKN0']) #Northern island
     islands.extend(['ITG1','ITG2']) #Sicilia and Sardegna
+    islands.extend(['EL43']) #Creta
     return islands
 
 def create_gridlines(ps,ms,point_spacing=1000):
