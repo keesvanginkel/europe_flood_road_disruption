@@ -169,6 +169,7 @@ def NUTS_3_islands():
     islands.extend(['HR037']) # Croatia
     islands.extend(['FI200'])  # Finland
     islands.extend(['SE214'])  # Sweden
+    islands.extend(['DK014'])  # Denmark: island in Bornhom
     return islands
 
 def NUTS_2_islands():
@@ -179,6 +180,20 @@ def NUTS_2_islands():
     islands.extend(['ITG1','ITG2']) #Sicilia and Sardegna
     islands.extend(['EL43']) #Creta
     return islands
+
+def NUTS_3_Flanders():
+    """Returns list of NUTS-3 regions in Flanders """
+    flanders = [BE223, BE231, BE234, BE235, BE232, BE233, BE236, BE241,
+                BE242, BE251, BE252, BE100, BE255, BE256, BE253, BE254,
+                BE257, BE258, BE324, BE211, BE212, BE213, BE221, BE222]
+    return flanders
+
+def NUTS_3_Wallonia():
+    """Returns list of NUTS-3 regions in Wallonia """
+    wallonia = [BE341, BE344, BE345, BE342, BE343, BE352, BE351, BE353,
+                BE335, BE336, BE310, BE334, BE323, BE321, BE322, BE325,
+                BE326, BE332, BE327, BE331]
+    return wallonia
 
 def create_gridlines(ps,ms,point_spacing=1000):
     """

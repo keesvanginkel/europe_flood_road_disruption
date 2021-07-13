@@ -1,0 +1,11 @@
+{ "comment" : "",
+  "paths" : {
+	"data" : "D:\\Python\\europe_flood_road_disruption\\data",
+	"output_data" : "D:\\Python\\europe_flood_road_disruption\\data\\output",
+	"output_images" : "D:\\Python\\europe_flood_road_disruption\\visualisations",
+	"NUTS_shapes" : "D:\\Europe_trade_disruptions\\NUTS-2_shapes\\NUTS_2016",
+	"graphs_folder" : "D:\\Europe_percolation\\denmark_redo\\graphs",
+    "preproc_output" : "D:\\Europe_percolation\\denmark_redo\\preproc_output",
+	"main_output" : "P:\\osm_flood\\network_analysis\\data\\main_output_P_France_Italy"
+  }
+	}
