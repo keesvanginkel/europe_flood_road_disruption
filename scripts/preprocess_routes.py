@@ -191,11 +191,10 @@ def gdf_to_shp(gdf, result_shp):
 
 
 # iterate over the graphs
-#todo: paths should use the config file!!!
-#Todo: NuTS2/NUTS3 should not be hardcoded, but given to the function
-#Todo: fix issue that the csv file gets a dummy col after each iteration :).
+#Todo: fix issue that the csv file gets a dummy col after each iteration
 #Todo: check if there are routes with length 0
-def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time'):
+
+def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',special_setting=None):
     """
     Preprocessing: finds the optimal routes between the NUTS-3 or NUTS-2 regions in a country
 
@@ -203,6 +202,8 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time'):
      *cntry* (string) : 3-letter code of the country
      *nuts_class* (string) : 'nuts2' or 'nuts3' (default)
      *weighing* (string) : 'time' (or distance?)
+     *special_settig* (string) : 'Flanders', 'Wallonia', 'Benelux', 'Rhine-alpine', None (default)
+        Used for running the script with other than default settings
 
     :return:
 
@@ -210,7 +211,7 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time'):
      - feather files with edges and nodes of the road network of the country: in output_folder
      - feather file with the centroids of the NUTS2 or NUTS-3 regions in the country
     """
-    special_setting = 'Benelux' # choose from ['Flanders','Wallonia','Benelux']
+    #special_setting = 'Benelux' # choose from ['Flanders','Wallonia','Benelux']
     #Some very specific settings, only used when doing uncommon things, such as the
                                  # uncertainty analysis
     if special_setting != None:
@@ -219,7 +220,8 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time'):
     if special_setting in ['Flanders','Wallonia']:
         from Europe_utils import NUTS_3_Flanders, NUTS_3_Wallonia
 
-
+    if weighing != 'time':
+        warnings.warn("Running in non-default mode. The waying of routes is not done by time, but by '{}'.".format(weighing))
 
 
     config = load_config()
@@ -257,6 +259,8 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time'):
     centroids = config['paths']['data'] / 'europe_{}_centroids.feather'.format(nuts_class)
     if special_setting == 'Benelux':
         centroids = config['paths']['data'] / 'benelux_nuts3_centroids.feather'
+    elif special_setting == 'Rhine-alpine':
+        centroids = config['paths']['data'] / 'rhine_alphine_ods.feather'
     centroids = pd.read_feather(centroids)
 
     # select the centroids that are in the country that is analysed
@@ -280,11 +284,14 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time'):
         overseas = NUTS_2_islands()
         selected_centroids = centroids.loc[(centroids['CNTR_CODE'] == translate_cntr_codes['code2'][cntry]) &
                                        (~centroids['NUTS_ID'].isin(overseas))]
-        print(list(selected_centroids['NUTS_ID'].values))
+        #print(list(selected_centroids['NUTS_ID'].values))
+
+    if special_setting == 'Rhine-alpine':
+        selected_centroids = centroids.copy()
 
     selected_centroids['geometry'] = selected_centroids['geometry'].apply(pyg.from_wkt)
 
-    # read the network files from Elco Koks
+    # read the network files (TRAILS output, with the flood information added)
     network = pd.read_feather(edge_file)
     # network['geometry'] = network['geometry'].apply(wkt.loads)
 
@@ -294,7 +301,7 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time'):
     network.drop('geometry', axis=1, inplace=True)
     network.rename(columns={'geoms': 'geometry'}, inplace=True)
 
-    # todo: filter out the tertiary roads?
+    # optional: filter out tertiary roads
     # network_geoms = network_geoms.loc[~network_geoms['highway'].isin(['tertiary', 'tertiary_link'])]
 
     # create the graph
@@ -329,7 +336,6 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time'):
 
     # save the list of combinations that should be ran in the excel sheet that is also used to check whether
     # the number of optimal routes is correct
-    # TODO: save indeed to excel to check if the number of optimal routes is correct (now only the list of combinations is written to the csv)
     all_aois = list(set([int(x) for l in list(network['AoI_RP100y_unique']) for x in l if (x != 0) and (x == x)]))
     max_aoi = len(all_aois)
 
@@ -339,8 +345,6 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time'):
     list_combinations.append(max_aoi)
     list_combinations = [str(x) for x in list_combinations]
 
-    #combinations_csv = r"P:\osm_flood\network_analysis\igraph\europe_flood_road_disruption\data\nuts3_combinations_completeness.csv"
-    #Todo: change path (remove completeness)
     #Todo: make sure it does not add empty columns
     combinations_csv = config['paths']['data'] / "{}_combinations.csv".format(nuts_class)
     df = pd.read_csv(combinations_csv,sep=';')
@@ -457,7 +461,7 @@ if __name__ == '__main__':
     #print(countries)
 
     #Single run
-    optimal_routes('BNX',nuts_class='nuts3')
+    optimal_routes('RAC',nuts_class='nuts3',weighing='time',special_setting='Rhine-alpine')
 
     #Multiple runs (sequential)
     #for country in countries:

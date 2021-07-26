@@ -38,7 +38,7 @@ output_folder = config['paths']['main_output']
 # parameters
 AoI_name = 'AoI_RP100y_unique' #Todo: move these settings to config
 weighing = 'time'  # time or distance #Todo: move these settings to config
-
+#weighing = 'distance'
 
 # import files
 def import_graph(the_country, nuts_class='nuts3'):
@@ -71,7 +71,7 @@ def import_graph(the_country, nuts_class='nuts3'):
     G.vs['id'] = nodes['id']
     G.vs[nuts_class] = nodes[nuts_class]
 
-    print(G.summary())
+    #print(G.summary())
     return G
 
 from pathlib import Path
@@ -121,11 +121,8 @@ def stochastic_network_analysis_phase1(G, nr_comb, nr_reps, country_code3, nuts_
 
     output_folder = load_config()['paths']['main_output']
     assert output_folder.exists()
-    #newpath = os.path.join(output_folder.format(current_country), 'scheduled', str(nr_comb))
     newpath = output_folder / current_country / 'scheduled' / str(nr_comb)
     if not newpath.exists(): newpath.mkdir(parents=True)
-    #if not os.path.exists(newpath):
-    #    os.makedirs(newpath)
 
     all_aois = list(set([item for sublist in G.es[AoI_name] for item in sublist if item != 0 and item == item]))
 
@@ -144,7 +141,6 @@ def stochastic_network_analysis_phase1(G, nr_comb, nr_reps, country_code3, nuts_
     for i, aoi in enumerate(list_aois):
         # i indicates the index of the experiments
         # each experiment is a unique combination of AoI's disrupted at the same time
-        #filename = os.path.join(output_folder.format(current_country), 'scheduled', str(nr_comb), str(i) + '.pkl')
         filename = output_folder / current_country / 'scheduled' / str(nr_comb) / (str(i) + '.pkl')
         with open(filename, 'wb') as f:
             pickle.dump((nr_comb, aoi, i, current_country, country_code3, nuts_class), f)
@@ -203,8 +199,8 @@ def stochastic_network_analysis_phase2(tup):
             if alt_route != np.inf:
                 # alt_route = inf if the route is not available
                 # append to list of alternative routes to get the average
-                extra_time.append(alt_route - od_optimal_routes.iloc[ii]['time'])
-                if od_optimal_routes.iloc[ii]['time'] != alt_route:
+                extra_time.append(alt_route - od_optimal_routes.iloc[ii][weighing]) #changed 'time' into weighing
+                if od_optimal_routes.iloc[ii][weighing] != alt_route: #changed 'time' into weighing
                     # the alternative route is different from the preferred route
                     disrupted += 1
             else:
@@ -215,12 +211,8 @@ def stochastic_network_analysis_phase2(tup):
         df = df.append({'AoI combinations': nr_comb, 'disrupted': disrupted / tot_routes * 100,
                         'avg extra time': mean(extra_time), 'AoI removed': aoi, 'no detour': nr_no_detour / tot_routes * 100},
                        ignore_index=True)
-
-        df.to_csv(os.path.join(result_path, str(i) + '.csv'))
+        df.to_csv(os.path.join(result_path, str(i) + '.csv'),sep=';')
 
     end = time.time()
-    print('Nr combinations: {}, Experiment nr: {}, time elapsed: {}'.format(nr_comb, i, end - start))
+    print('Finished percolation subprocess. Nr combinations: {}, Experiment nr: {}, time elapsed: {}'.format(nr_comb, i, end - start))
 
-
-
-    #Todo: run test procedure when calling as __main__

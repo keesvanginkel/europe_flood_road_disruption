@@ -23,8 +23,9 @@ class RunPercolation:
         print('prep_par(), preparing pickles for parallel processing for ',len(self.countries), 'countries')
         for ctr in self.countries:
             combinations = [int(x) for x in self.cntry_setup.loc[self.cntry_setup['code3'] == ctr, 'aoi_combinations'].iloc[0].split(' ')]
-            if ctr in ['BEL', 'DEU', 'NLD','ITA','GBR']:
+            if ctr in ['DEU', 'NLD','ITA','GBR']: #'BEL',
                 # For Belgium, Germany and the Netherlands, Italy and UK we are using the NUTS-2 classification
+                #... but for Belgium not in the uncertainty analysis :)
                 nuts_class = 'nuts2'
             else:
                 # For the other countries we use the NUTS-3 classification
@@ -54,7 +55,7 @@ class RunPercolation:
             for comb in folders:
                 pkls = os.listdir(os.path.join(self.output_folder.format(ctr), 'scheduled', comb))  # list of pickles in each folder
 
-                for pkl in pkls:  # If lower than scheduled, limit to pkls[:200] 200 iterations for now
+                for pkl in pkls[:constrain_reps_]:  # If lower than scheduled, limit to pkls[:200] 200 iterations for now
 
                     schedule_file = os.path.join(self.output_folder.format(ctr), 'scheduled', comb, pkl.split('.')[0] + '.pkl')
                     with open(schedule_file, 'rb') as f:
@@ -68,17 +69,24 @@ class RunPercolation:
             print('Run_par() starting scheduled experiments for {}'.format(ctr))
             with Pool(int(nr_cores)) as pool:
                 pool.map(stochastic_network_analysis_phase2, todo, chunksize=1)
+            #stochastic_network_analysis_phase2(todo[1]) #useful for buxfixing
             print('Percolation analysis finished for:', ctr)
 
 
 if __name__ == '__main__':
     #countries_ = N0_to_3L(['LT','LV','DK','MK','SI']) #Provide list of 3l-codes
-    countries_ = [N0_to_3L('UK')]
-    nuts_level = 'nuts2'
+    #countries_ = [N0_to_3L('BE')]
+    countries_ = ['RAC']
+    nuts_level = 'nuts3'
     reps_ = 500 #Repetitions per #AoIs
+    constrain_reps_ = 200 #Schedule all, but only run these first.
 
     #Read the set-up per country
     config = load_config()
+    #Run a small test to check if all the paths are well configured:
+    for key, path in config['paths'].items():
+        print(key, path, path.exists())
+
     cntrySetup_path = config['paths']['data'] / '{}_combinations.csv'.format(nuts_level)
     if not cntrySetup_path.exists():
         raise OSError(2, 'Cannot find the file prescribing the AoI sampling:', '{}'.format(cntrySetup_path))
@@ -86,12 +94,12 @@ if __name__ == '__main__':
     cntrySetup = pd.read_csv(cntrySetup_path,sep=';')
 
     outputFolder = str(config['paths']['main_output']) + r'\{}'
+    print(outputFolder)
 
     running = RunPercolation(cntry_setup=cntrySetup, countries=countries_, reps=reps_, output_folder=outputFolder)
 
     #running.prep_par()
-    running.run_par(4)
-    #todo: constrain running
+    running.run_par(6)
 
     # if sys.argv[1] == 'prep_par':
     #     running.prep_par()
