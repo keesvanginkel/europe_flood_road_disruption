@@ -8,3 +8,5 @@ data
 todo.txt
 config.json
 conf-Copy1.json
+scripts/prepare_rhine_alpine.ipynb
+scripts/prepare_shifted_belgium.ipynb
