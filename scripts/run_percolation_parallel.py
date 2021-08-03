@@ -55,13 +55,13 @@ class RunPercolation:
             for comb in folders:
                 pkls = os.listdir(os.path.join(self.output_folder.format(ctr), 'scheduled', comb))  # list of pickles in each folder
 
-                for pkl in pkls[:constrain_reps_]:  # If lower than scheduled, limit to pkls[:200] 200 iterations for now
+                for pkl in pkls: #pkls[:constrain_reps_]  # If lower than scheduled, limit to pkls[:200] 200 iterations for now
 
                     schedule_file = os.path.join(self.output_folder.format(ctr), 'scheduled', comb, pkl.split('.')[0] + '.pkl')
                     with open(schedule_file, 'rb') as f:
                         todo.append(pickle.load(f))
 
-            shuffle(todo)
+            #shuffle(todo)
             print(todo[0:10])  # just to check if we indeed shuffled
             print("In total we will do {} mini-processes".format(len(todo)))
 
@@ -69,17 +69,17 @@ class RunPercolation:
             print('Run_par() starting scheduled experiments for {}'.format(ctr))
             with Pool(int(nr_cores)) as pool:
                 pool.map(stochastic_network_analysis_phase2, todo, chunksize=1)
-            #stochastic_network_analysis_phase2(todo[1]) #useful for buxfixing
+            #stochastic_network_analysis_phase2(todo[0]) #useful for bugfixing
             print('Percolation analysis finished for:', ctr)
 
 
 if __name__ == '__main__':
     #countries_ = N0_to_3L(['LT','LV','DK','MK','SI']) #Provide list of 3l-codes
     #countries_ = [N0_to_3L('BE')]
-    countries_ = ['RAC']
+    countries_ = ['BEL']
     nuts_level = 'nuts3'
     reps_ = 500 #Repetitions per #AoIs
-    constrain_reps_ = 200 #Schedule all, but only run these first.
+    #constrain_reps_ = 200 #Schedule all, but only run these first.
 
     #Read the set-up per country
     config = load_config()
@@ -99,7 +99,7 @@ if __name__ == '__main__':
     running = RunPercolation(cntry_setup=cntrySetup, countries=countries_, reps=reps_, output_folder=outputFolder)
 
     #running.prep_par()
-    running.run_par(6)
+    running.run_par(8)
 
     # if sys.argv[1] == 'prep_par':
     #     running.prep_par()

@@ -202,7 +202,7 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',special_setting=
      *cntry* (string) : 3-letter code of the country
      *nuts_class* (string) : 'nuts2' or 'nuts3' (default)
      *weighing* (string) : 'time' (or distance?)
-     *special_settig* (string) : 'Flanders', 'Wallonia', 'Benelux', 'Rhine-alpine', None (default)
+     *special_settig* (string) : 'Flanders', 'Wallonia', 'Benelux', 'Rhine-alpine', 'shifted_centroids', None (default)
         Used for running the script with other than default settings
 
     :return:
@@ -211,7 +211,6 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',special_setting=
      - feather files with edges and nodes of the road network of the country: in output_folder
      - feather file with the centroids of the NUTS2 or NUTS-3 regions in the country
     """
-    #special_setting = 'Benelux' # choose from ['Flanders','Wallonia','Benelux']
     #Some very specific settings, only used when doing uncommon things, such as the
                                  # uncertainty analysis
     if special_setting != None:
@@ -261,6 +260,9 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',special_setting=
         centroids = config['paths']['data'] / 'benelux_nuts3_centroids.feather'
     elif special_setting == 'Rhine-alpine':
         centroids = config['paths']['data'] / 'rhine_alphine_ods.feather'
+    elif special_setting == 'shifted_centroids':
+        centroids = config['paths']['data'] / 'belgium_shifted_centroids.feather'
+
     centroids = pd.read_feather(centroids)
 
     # select the centroids that are in the country that is analysed
@@ -287,6 +289,9 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',special_setting=
         #print(list(selected_centroids['NUTS_ID'].values))
 
     if special_setting == 'Rhine-alpine':
+        selected_centroids = centroids.copy()
+
+    if special_setting == 'shifted_centroids':
         selected_centroids = centroids.copy()
 
     selected_centroids['geometry'] = selected_centroids['geometry'].apply(pyg.from_wkt)
@@ -461,7 +466,7 @@ if __name__ == '__main__':
     #print(countries)
 
     #Single run
-    optimal_routes('RAC',nuts_class='nuts3',weighing='time',special_setting='Rhine-alpine')
+    optimal_routes('BEL',nuts_class='nuts3',weighing='time',special_setting='shifted_centroids')
 
     #Multiple runs (sequential)
     #for country in countries:

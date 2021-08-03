@@ -22,6 +22,7 @@ import numpy as np
 from tqdm import tqdm
 import feather
 import pickle
+import warnings
 
 from utils import load_config
 
@@ -152,6 +153,16 @@ def stochastic_network_analysis_phase2(tup):
     Input argument:
         *tup* (tuple) = tuple of lenght 6, containing the the nr_comb and the unique i (ID) of the experiment
     """
+    special_setting = None #'depth_threshold'
+    depth_threshold = 0. #depth threshold in m.
+    if special_setting is not None:
+        extension = ""
+        if special_setting == 'depth_threshold':
+            extension = extension + "Threshold: " + str(depth_threshold) + " m"
+        warnings.warn("Stochatistic_network_analysis_phase2() in percolation_optimized_parallel.py " +
+                      "runs with special setting {}, {}".format(special_setting,extension))
+
+
     output_folder = load_config()['paths']['main_output']
 
     # read tuple
@@ -179,11 +190,18 @@ def stochastic_network_analysis_phase2(tup):
         tot_routes = len(od_optimal_routes.index)
 
         start = time.time()
+
         # remove the edges per flood event (Area of Influence)
         if nr_comb == 1:
             to_remove = G.es.select(lambda e: aoi in e.attributes()[AoI_name])
         else:
             to_remove = G.es.select(lambda e: set(aoi) & set(e.attributes()[AoI_name]))
+
+        #Iterate over edges that are planned to be removed based on their AoI info, to do further filtering
+        if special_setting == 'depth_threshold':
+            #only remove edges that are inundated above a certain threshold
+            to_remove = [edge for edge in to_remove if edge['RP100_max_flood_depth'] >= depth_threshold]
+
         G.delete_edges(to_remove)
 
         extra_time = []
@@ -194,6 +212,9 @@ def stochastic_network_analysis_phase2(tup):
 
             # calculate the (alternative) distance between two nodes
             # now the graph is treated as directed, make mode=ig.ALL to treat as undirected
+            ### Todo: this can be optimized. You only need to recalculate routes which are disrupted!!!!
+            ### i.e. only calculate route if any edge in the route between OD-pair is in to_remove
+            ### todo: it would be good to save the names of the OD-pairs that are disrupted
             alt_route = G.shortest_paths_dijkstra(source=int(o), target=int(d), mode=ig.OUT, weights=weighing)
             alt_route = alt_route[0][0]
             if alt_route != np.inf:
