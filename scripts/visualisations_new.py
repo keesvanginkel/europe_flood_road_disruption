@@ -106,7 +106,7 @@ def aggregate_results_step2(ignore = [None],config=None):
     
     print('Starting step 2:')
     countries_paths = [x for x in country_results_folder.iterdir() if x.is_dir()]
-    countries = [x.stem for x in countries_paths]
+    countries = [x.stem for x in countries_paths if x.stem not in ignore]
     
     
     
@@ -145,9 +145,9 @@ def combine_finished_stochastic(finished_folder):
     for folder in finished_folder.iterdir():
         if folder.is_dir():
             files = [f for f in folder.iterdir()]
-            df = pd.read_csv(files[0])
+            df = pd.read_csv(files[0],sep=';')
             for file in files[1:]:
-                df_add = pd.read_csv(file)
+                df_add = pd.read_csv(file,sep=';')
                 df = pd.concat([df, df_add], sort='False')
             df.to_csv(finished_folder / "aoi_{}.csv".format(folder.stem),sep=';')
 
