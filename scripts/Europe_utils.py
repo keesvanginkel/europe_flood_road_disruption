@@ -37,6 +37,8 @@ def L3_to_N0(L3_codes):
     Returns in the same format
 
     df contains data: replace with import from config
+    
+    ISSUE NOT necessarily in the right order!!!
     """
     data = config['paths']['data']
     df = pd.read_csv((data / 'country_codes.csv'), delimiter=';', index_col='code3')
@@ -69,6 +71,8 @@ def country_names(country_codes):
         country_codes = [country_codes]
         unpack = True
     sel = list(df.loc[df.index.isin(country_codes)].values)
+    
+    
     if unpack: sel = sel[0]
     return sel
 
@@ -83,6 +87,8 @@ def country_code_from_name(country_names,l3=False):
         
     Returns
         *sel* (string or list of strings) : 2l or 3l codes
+        
+        #Todo: issue, not capital sensitive
     """
 
     if True:
