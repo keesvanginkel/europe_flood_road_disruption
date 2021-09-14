@@ -16,6 +16,7 @@ import pandas as pd
 import random
 from statistics import mean
 import time
+from pathlib import Path
 import pygeos as pyg
 from shapely import wkt
 import numpy as np
@@ -27,14 +28,15 @@ import warnings
 from utils import load_config
 
 # translation between countrycodes (2- and 3-letter and country names)
-config = load_config()
+#Todo: these config loads should be avoided
+config = load_config(file='config-KeesWork.json')
 country_codes = config['paths']['data'] / 'country_codes.csv'
 translate_cntr_codes = pd.read_csv(country_codes, delimiter=';').set_index('code3').to_dict(orient='dict')
 
 # set paths
-input_folder = r"D:\COACCH_paper\data" #TODO: change to config
+#input_folder = r"D:\COACCH_paper\data" #TODO: change to config
 #output_folder = r"P:\osm_flood\network_analysis\data\main_output\{}"
-output_folder = config['paths']['main_output']
+#output_folder = config['paths']['main_output']
 
 # parameters
 AoI_name = 'AoI_RP100y_unique' #Todo: move these settings to config
@@ -42,8 +44,9 @@ weighing = 'time'  # time or distance #Todo: move these settings to config
 #weighing = 'distance'
 
 # import files
-def import_graph(the_country, nuts_class='nuts3'):
-    networks_europe_path = load_config()['paths']['graphs_folder']
+def import_graph(the_country, nuts_class='nuts3',config_file='config.json'):
+    config = load_config(file=config_file)
+    networks_europe_path = config['paths']['graphs_folder']
     edge_file = [os.path.join(networks_europe_path, f) for f in os.listdir(networks_europe_path) if
                 f == the_country + '-edges.feather'][0]
 
@@ -75,9 +78,9 @@ def import_graph(the_country, nuts_class='nuts3'):
     #print(G.summary())
     return G
 
-from pathlib import Path
 
-def import_optimal_routes(the_country):
+
+def import_optimal_routes(the_country,config_file='config.json'):
     """
     Load the optimal routes between NUTS-X regions, as calculated during the preprocessing step
         *the_country* (string): Name of the country, should correspond to folder name in preproc_output
@@ -85,8 +88,8 @@ def import_optimal_routes(the_country):
     Returns:
         *optimal_routes* (DataFrame) : dataframe with optimal_routes between NUTS-X regions
     """
-    folder = Path(r'P:\osm_flood\network_analysis\data\preproc_output')
-    folder = load_config()['paths']['preproc_output']
+    config = load_config(file=config_file)
+    folder = config['paths']['preproc_output']
     file = folder / the_country / 'optimal_routes_{}_{}.feather'.format(weighing, the_country)
     optimal_routes = pd.read_feather(file)
 
@@ -96,12 +99,13 @@ def aoi_combinations(all_aois_list, nr_comb, nr_iterations):
     return [random.choices(all_aois_list, k=nr_comb) for i in range(nr_iterations)]
 
 
-def stochastic_network_analysis_phase1(G, nr_comb, nr_reps, country_code3, nuts_class, list_finished=None):
+def stochastic_network_analysis_phase1(config_file,G, nr_comb, nr_reps, country_code3, nuts_class, list_finished=None):
     """
     This function creates a folder structure with the experiments that are to be done in the percolation analysis,
     so that the actual experiments can be done using parallel processing
 
     Arguments:
+        *config_file* (str) : name of the config file, to be given to load_config from utils.py
         *G* (igraph Graph) : The network graph
         *nr_comb* (int) : The number of AoIs to remove
         *nr_reps* (in) : How often to repeat the AoI sampling, for the number of AoIs specified in nr_comb
@@ -116,11 +120,11 @@ def stochastic_network_analysis_phase1(G, nr_comb, nr_reps, country_code3, nuts_
 
     Returns: none
     """
-    #Todo: if everything works well: remove the old os.path stuff
     current_country = translate_cntr_codes['country'][country_code3].lower()  # The country that is analysed
     # print("\nCurrent iteration is for:", current_country)
 
-    output_folder = load_config()['paths']['main_output']
+    config = load_config(file=config_file)
+    output_folder = config['paths']['main_output']
     assert output_folder.exists()
     newpath = output_folder / current_country / 'scheduled' / str(nr_comb)
     if not newpath.exists(): newpath.mkdir(parents=True)
@@ -149,12 +153,38 @@ def stochastic_network_analysis_phase1(G, nr_comb, nr_reps, country_code3, nuts_
 
 def stochastic_network_analysis_phase2(tup):
     """
-    #todo: update documentation
-    Input argument:
-        *tup* (tuple) = tuple of lenght 6, containing the the nr_comb and the unique i (ID) of the experiment
+    Carry out the percolation analysis which has been scheduled in phase 1.
+
+    Arguments:
+        *tup* (tuple) = tuple of lenght 8, containing:
+            (config_file, nr_comb, aoi, i, country_name, country_code3, nutsClass)
+                config_file (str)            : name of the config file, to be given to load_config from utils.py
+                nr_comb (int)               : number of combinations, i.e. microfloods sampled at the same time
+                aoi (int or list of int)    : the microfloods sampled
+                country_name (string)       : full lowercase country name (e.g. 'belgium')
+                country_code3 (str)         : 3-letter countryname (e.g. 'BEL')
+                nuts_level (str)            : can be 'nuts3' or 'nuts2'
+                special_setting (str)       : run analysis in non-default mode, used for uncertainty analysis
+                    Available special settings:
+                        'giant_component'   : analyse the size of the giant component (largest connected cluster)
+                        'depth_threshold'   : impose water depth threshold on the removal of edges
+                    Other special settings are already imposed in the preprocessing step
+
+    Returns: None
+
+    Effect:
+        Write results of the percolation analysis to the 'main_output/*name*/finished' path set in the config file
     """
-    special_setting = None #'depth_threshold'
-    depth_threshold = 0. #depth threshold in m.
+    assert len(tup) == 8 #make sure the right number of arg is given to the function
+
+    # unpack tuple
+    config_file, nr_comb, aoi, i, country_name, country_code3, nutsClass, special_setting = \
+        tup[0], tup[1], tup[2], tup[3], tup[4], tup[5], tup[6], tup[7]
+
+    config = load_config(file=config_file)
+
+    #special_setting = 'giant_component' #'depth_threshold', 'giant_component'
+    #depth_threshold = 0. #depth threshold in m.
     if special_setting is not None:
         extension = ""
         if special_setting == 'depth_threshold':
@@ -163,10 +193,7 @@ def stochastic_network_analysis_phase2(tup):
                       "runs with special setting {}, {}".format(special_setting,extension))
 
 
-    output_folder = load_config()['paths']['main_output']
-
-    # read tuple
-    nr_comb, aoi, i, country_name, country_code3, nutsClass = tup[0], tup[1], tup[2], tup[3], tup[4], tup[5]
+    output_folder = config['paths']['main_output']
 
     # SKIP IF NR of COMBINATIONS OF AOI IS ALREADY FINISHED BY CHECKING IF OUTPUT FILE IS ALREADY CREATED
     #result_path = os.path.join(output_folder.format(country_name), 'finished', str(nr_comb))
@@ -175,15 +202,21 @@ def stochastic_network_analysis_phase2(tup):
     if not os.path.exists(result_path):
         os.makedirs(result_path)
 
+    if special_setting == 'giant_component':
+        result_gc_path = output_folder / country_name / 'finished_gc' / str(nr_comb)
+        if not result_gc_path.exists():
+            result_gc_path.mkdir(parents=True, exist_ok=True)
+
     if os.path.exists(os.path.join(result_path,str(i) + '.csv')):
         print('nr_comb = {}, experiment = {} already finished!'.format(nr_comb,i))
         return None
 
+
     else:
         # do the calculations
         # Import graph and OD matrix of optimal routes
-        G = import_graph(country_code3, nuts_class=nutsClass)
-        od_optimal_routes = import_optimal_routes(country_name)
+        G = import_graph(country_code3, nuts_class=nutsClass,config_file=config_file)
+        od_optimal_routes = import_optimal_routes(country_name,config_file=config_file)
 
         # initiate variables
         df = pd.DataFrame(columns=['AoI combinations', 'disrupted', 'avg extra time', 'AoI removed', 'no detour'])
@@ -202,6 +235,19 @@ def stochastic_network_analysis_phase2(tup):
             #only remove edges that are inundated above a certain threshold
             to_remove = [edge for edge in to_remove if edge['RP100_max_flood_depth'] >= depth_threshold]
 
+        if special_setting == 'giant_component':
+            # Calculate reference metrics for undisturbed graph, only in the first iteration
+            file = result_gc_path.parents[0] / 'reference.csv'
+            if not file.exists():
+                print('calculating refence metrics for giant component analysis, saving to {}'.format(file))
+                edges_in_graph, nodes_in_graph, edges_in_giant, nodes_in_giant = giant_component_analysis(G,mode='strong')
+                d = {'ref_edges_in_graph' : edges_in_graph,
+                     'ref_nodes_in_graph' : nodes_in_graph,
+                     'ref_edges_in_giant' : edges_in_giant,
+                     'ref_nodes_in_giant' : nodes_in_giant}
+                result = pd.DataFrame(pd.Series(data=d,name='undisturbed graph')).T
+                result.to_csv(file,sep=';')
+
         G.delete_edges(to_remove)
 
         extra_time = []
@@ -216,6 +262,7 @@ def stochastic_network_analysis_phase2(tup):
             ### i.e. only calculate route if any edge in the route between OD-pair is in to_remove
             ### todo: it would be good to save the names of the OD-pairs that are disrupted
             alt_route = G.shortest_paths_dijkstra(source=int(o), target=int(d), mode=ig.OUT, weights=weighing)
+            #G.get_shortest_paths(v=int(o), to=int(d), mode=ig.OUT, weights=weighing,output='vpath')
             alt_route = alt_route[0][0]
             if alt_route != np.inf:
                 # alt_route = inf if the route is not available
@@ -229,11 +276,57 @@ def stochastic_network_analysis_phase2(tup):
                 disrupted += 1
                 nr_no_detour += 1
 
-        df = df.append({'AoI combinations': nr_comb, 'disrupted': disrupted / tot_routes * 100,
-                        'avg extra time': mean(extra_time), 'AoI removed': aoi, 'no detour': nr_no_detour / tot_routes * 100},
-                       ignore_index=True)
+        output = {'AoI combinations': nr_comb,
+                          'disrupted': disrupted / tot_routes * 100,
+                          'avg extra time': mean(extra_time),
+                          'AoI removed': aoi,
+                          'no detour': nr_no_detour / tot_routes * 100}
+        df = df.append(output, ignore_index=True)
         df.to_csv(os.path.join(result_path, str(i) + '.csv'),sep=';')
+
+        if special_setting == 'giant_component':
+            # Calculate the metrics for the Giant Component analysis
+            edges_in_graph, nodes_in_graph, edges_in_giant, nodes_in_giant = giant_component_analysis(G,
+                                                        mode='strong')
+            d = {'edges_in_graph': edges_in_graph,
+                 'nodes_in_graph': nodes_in_graph,
+                 'edges_in_giant': edges_in_giant,
+                 'nodes_in_giant': nodes_in_giant}
+            output.update(d)
+            df_gc_output = pd.DataFrame(pd.Series(output)).T
+            df_gc_output.to_csv((result_gc_path / (str(i) + '.csv')),sep=';')
+
+
 
     end = time.time()
     print('Finished percolation subprocess. Nr combinations: {}, Experiment nr: {}, time elapsed: {}'.format(nr_comb, i, end - start))
+
+def giant_component_analysis(G,mode='strong'):
+    """
+    Calculate the number of edges in the largest connected component of the graph.
+    Within the function, the giant is called 'H' (an igraph Graph)
+
+    Arguments:
+        *G* (igraph Graph) : iGraph graph object
+        *mode* (string) : mode for clustering G ('strong' or 'weak'),
+            say that the the new network is clustered in two parts, a small part S and a large part H (giant)
+            'strong' means that within each cluster you can travel from all
+                          see https://igraph.org/python/doc/api/igraph.Graph.html#clusters
+                          for more info see: https://en.wikipedia.org/wiki/Connectivity_(graph_theory)
+        Note that for undirected graphs (U---) there is no difference...
+
+    Returns:
+        *edges_in_graph* (int) : number of edges in the total (disrupted) graph
+        *nodes_in_graph* (int) : number of nodes in the total (disrupted) graph
+        *edges_in_giant* (int) : number of edges in the giant component of the graph
+        *nodes_in_giant* (int) : number of nodes in the giant component of the graph
+    """
+    edges_in_graph = G.ecount()
+    nodes_in_graph = G.vcount()
+    giant = G.clusters(mode='strong').giant()
+    edges_in_giant = giant.ecount()
+    nodes_in_giant = G.ecount()
+
+    return edges_in_graph, nodes_in_graph, edges_in_giant, nodes_in_giant
+
 
