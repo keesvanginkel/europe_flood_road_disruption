@@ -4,7 +4,7 @@ import tqdm as tqdm
 import time as time
 
 
-to_eval = Path(r"Z:\eu_percolation\data\main_output")
+to_eval = Path("D:\Europe_percolation\combined_results\combined_main_output")
 assert to_eval.exists()
 
 countries = list(to_eval.glob('*'))

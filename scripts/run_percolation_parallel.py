@@ -12,11 +12,13 @@ from Europe_utils import *
 
 
 class RunPercolation:
-    def __init__(self, cntry_setup, countries, reps, output_folder):
+    def __init__(self, cntry_setup, countries, reps, output_folder,config='config.json',special_setting=None):
         self.cntry_setup = cntry_setup
         self.countries = countries
         self.reps = reps
         self.output_folder = output_folder
+        self.config = config #todo: I don't think this information needs to be passed to thte methods explicitly
+        self.special_setting = special_setting
 
     # prepare the pickles to do the parallel processing with
     def prep_par(self):
@@ -31,9 +33,10 @@ class RunPercolation:
                 # For the other countries we use the NUTS-3 classification
                 nuts_class = 'nuts3'
 
-            G = import_graph(ctr, nuts_class=nuts_class)
+            G = import_graph(ctr, nuts_class=nuts_class,config_file=self.config)
             for com in combinations:
-                stochastic_network_analysis_phase1(G, com, self.reps, ctr, nuts_class)
+                #Todo: also give special settings to this function
+                stochastic_network_analysis_phase1(self.config,G, com, self.reps, ctr, nuts_class)
 
         print('Preparing pickles finished for:',ctr)
 
@@ -59,9 +62,11 @@ class RunPercolation:
 
                     schedule_file = os.path.join(self.output_folder.format(ctr), 'scheduled', comb, pkl.split('.')[0] + '.pkl')
                     with open(schedule_file, 'rb') as f:
-                        todo.append(pickle.load(f))
+                        inTuple = pickle.load(f) #load the original instruction from prep_par
+                        outTuple = tuple([self.config] + list(inTuple) + [self.special_setting])
+                        todo.append(outTuple)
 
-            #shuffle(todo)
+            shuffle(todo)
             print(todo[0:10])  # just to check if we indeed shuffled
             print("In total we will do {} mini-processes".format(len(todo)))
 
@@ -75,14 +80,15 @@ class RunPercolation:
 
 if __name__ == '__main__':
     #countries_ = N0_to_3L(['LT','LV','DK','MK','SI']) #Provide list of 3l-codes
-    #countries_ = [N0_to_3L('BE')]
-    countries_ = ['BEL']
+    #countries_ = [N0_to_3L('LV')]
+    countries_ = ['LVA']
     nuts_level = 'nuts3'
-    reps_ = 500 #Repetitions per #AoIs
+    reps_ = 200 #Repetitions per #AoIs
     #constrain_reps_ = 200 #Schedule all, but only run these first.
 
     #Read the set-up per country
-    config = load_config()
+    config_file = 'config-KeesWork.json'
+    config = load_config(file=config_file)
     #Run a small test to check if all the paths are well configured:
     for key, path in config['paths'].items():
         print(key, path, path.exists())
@@ -96,10 +102,11 @@ if __name__ == '__main__':
     outputFolder = str(config['paths']['main_output']) + r'\{}'
     print(outputFolder)
 
-    running = RunPercolation(cntry_setup=cntrySetup, countries=countries_, reps=reps_, output_folder=outputFolder)
+    running = RunPercolation(cntry_setup=cntrySetup, countries=countries_, reps=reps_,
+                             output_folder=outputFolder,config=config_file,special_setting='giant_component')
 
     #running.prep_par()
-    running.run_par(8)
+    running.run_par(nr_cores=8)
 
     # if sys.argv[1] == 'prep_par':
     #     running.prep_par()

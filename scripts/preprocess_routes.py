@@ -194,7 +194,7 @@ def gdf_to_shp(gdf, result_shp):
 #Todo: fix issue that the csv file gets a dummy col after each iteration
 #Todo: check if there are routes with length 0
 
-def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',special_setting=None):
+def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',config_file='config.json',special_setting=None):
     """
     Preprocessing: finds the optimal routes between the NUTS-3 or NUTS-2 regions in a country
 
@@ -223,7 +223,7 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',special_setting=
         warnings.warn("Running in non-default mode. The waying of routes is not done by time, but by '{}'.".format(weighing))
 
 
-    config = load_config()
+    config = load_config(file=config_file)
 
     # define in- and output folders
     output_folder = config['paths']['preproc_output']
@@ -466,7 +466,7 @@ if __name__ == '__main__':
     #print(countries)
 
     #Single run
-    optimal_routes('BEL',nuts_class='nuts3',weighing='time',special_setting='shifted_centroids')
+    optimal_routes('LVA',nuts_class='nuts3',weighing='time',config_file='config-KeesWork.json',special_setting=None)
 
     #Multiple runs (sequential)
     #for country in countries:

@@ -3,6 +3,12 @@
 import visualisations_new as vis
 from utils import load_config
 
-config = load_config(file='config_aggIT.json')
-#vis.aggregate_results_step1(ignore=[None],config=config) #to .csv per # combinations
-vis.aggregate_results_step2(ignore=[None],config=config)
+config = load_config(file='config_unc.json')
+
+ignore = ['austria_buffer', 'belgium_0cm', 'belgium_50cm', 'belgium_distance', 'belgium_fla',  #'belgium_giant_component',
+          'belgium_n3_alllevels', 'belgium_n3_pri', 'belgium_n3_prisec', 'belgium_shifted_centroids', 'belgium_wal',
+          'benelux', 'latvia_giant_component', 'poland_2000', 'rhine_alpine_corridor']
+
+#vis.aggregate_results_step1(ignore=ignore,config=config) #to .csv per # combinations
+vis.aggregate_results_step2(ignore=ignore,config=config)
+
