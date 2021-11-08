@@ -45,6 +45,16 @@ weighing = 'time'  # time or distance #Todo: move these settings to config
 
 # import files
 def import_graph(the_country, nuts_class='nuts3',config_file='config.json'):
+    """
+    Arguments:
+        *the_country* (string) : 3-letter code of country name e.g. 'Bel'
+        *nuts_class* (string) : 'nuts3' or 'nut2'
+        *config_file* (string) : name of the config file directing to the path, default = config.json
+    
+    Returns:
+        **
+    
+    """
     config = load_config(file=config_file)
     networks_europe_path = config['paths']['graphs_folder']
     edge_file = [os.path.join(networks_europe_path, f) for f in os.listdir(networks_europe_path) if
@@ -59,8 +69,8 @@ def import_graph(the_country, nuts_class='nuts3',config_file='config.json'):
     network['geoms'] = network['geoms'].apply(wkt.loads)
     network.drop('geometry', axis=1, inplace=True)
     network.rename(columns={'geoms': 'geometry'}, inplace=True)
-    # network = network.loc[~network['highway'].isin(['tertiary', 'tertiary_link'])]
-    # todo: filter out the tertiary roads?
+    # network = network.loc[~network['highway'].isin(['tertiary', 'tertiary_link'])] #to filter out, not recommended
+    # ... because it could result in many nodes of degree 1 or even 0. Better to cleanup graph first.
 
     # create the graph
     G = graph_load(network, ['geometry', 'id', 'RP100_cells_intersect', 'RP100_max_flood_depth',
@@ -150,6 +160,49 @@ def stochastic_network_analysis_phase1(config_file,G, nr_comb, nr_reps, country_
         with open(filename, 'wb') as f:
             pickle.dump((nr_comb, aoi, i, current_country, country_code3, nuts_class), f)
 
+def stochastic_network_analysis_phase1_event_sampling(config_file,country_code3, nuts_class, year, data,
+                                                      special_setting='todo'):
+    """
+    This function creates a folder structure with the experiments that are to be done in the percolation analysis,
+    so that the actual experiments can be done using parallel processing, for event-based dataset
+
+    Arguments:
+        *config_file* (str) : name of the config file, to be given to load_config from utils.py
+        *country_code3 (string) : 3letter country code
+        *nuts_class* (string) : can be 'nuts3' or 'nuts2'
+
+    Effect:
+        Creates a folder with the country name in 'main_output', with a subfolder 'scheduled_event',
+        and puts pickles in these folders
+        These pickles contain several variables needed to carry out that experiment
+
+    Returns: none
+    """
+    current_country = translate_cntr_codes['country'][country_code3].lower()  # The country that is analysed
+    # print("\nCurrent iteration is for:", current_country)
+
+    config = load_config(file=config_file)
+    output_folder = config['paths']['main_output']
+    assert output_folder.exists()
+
+
+
+    warnings.warn("""Note that we remapped some variables to be able 
+                    to stil use the stochatistic_network_analysis_phase2()_function: 
+                    nr_comb : 'year' of the event 
+                    i : 'refers to sampling variant, '0: means default variant' (still unused)
+                    """)
+
+    nr_comb = year
+    i = 0
+    aoi = data['c_aoi']
+
+    newpath = output_folder / current_country / 'scheduled' / str(nr_comb)
+    if not newpath.exists(): newpath.mkdir(parents=True)
+
+    filename = output_folder / current_country / 'scheduled' / str(nr_comb) / (str(i) + '.pkl')
+    with open(filename, 'wb') as f:
+        pickle.dump((nr_comb, aoi, i, current_country, country_code3, nuts_class), f)
 
 def stochastic_network_analysis_phase2(tup):
     """
@@ -300,6 +353,7 @@ def stochastic_network_analysis_phase2(tup):
 
     end = time.time()
     print('Finished percolation subprocess. Nr combinations: {}, Experiment nr: {}, time elapsed: {}'.format(nr_comb, i, end - start))
+
 
 def giant_component_analysis(G,mode='strong'):
     """

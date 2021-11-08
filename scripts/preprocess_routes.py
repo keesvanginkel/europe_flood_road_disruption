@@ -220,7 +220,7 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',config_file='con
         from Europe_utils import NUTS_3_Flanders, NUTS_3_Wallonia
 
     if weighing != 'time':
-        warnings.warn("Running in non-default mode. The waying of routes is not done by time, but by '{}'.".format(weighing))
+        warnings.warn("Running in non-default mode. The weighing of routes is not done by time, but by '{}'.".format(weighing))
 
 
     config = load_config(file=config_file)
@@ -466,7 +466,7 @@ if __name__ == '__main__':
     #print(countries)
 
     #Single run
-    optimal_routes('LVA',nuts_class='nuts3',weighing='time',config_file='config-KeesWork.json',special_setting=None)
+    optimal_routes('BEL',nuts_class='nuts3',weighing='time',config_file='config_unc.json',special_setting=None)
 
     #Multiple runs (sequential)
     #for country in countries:
