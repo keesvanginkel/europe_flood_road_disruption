@@ -1,12 +1,14 @@
 # Europe_flood_road_disruption
-Percolation analysis for the European road network with flood hazard data. This code is used to create the results of the paper <i>Will river floods tip European road networks?</i>, by Kees van Ginkel, Elco Koks, Frederique de Groen, Viet Dung Nguyen and Lorenzo Alfieri (2021, under review).
+This repo contains python code to do percolation analysis for road networks of 30 European countries. The results are described in the paper <i>Will river floods tip European road networks?</i>, by Kees van Ginkel, Elco Koks, Frederique de Groen, Viet Dung Nguyen and Lorenzo Alfieri (2021, under review).
+
+In summary, the model works as follows. The road network of each country is fetched from [OpenStreetMap](www.openstreetmap.org). Then, the centroids of the Eurostat-2016 [NUTS-2 or NUTS-3 regions](https://ec.europa.eu/eurostat/web/nuts/background) within the country are determined, to calculate the preferred routes (shortest travel time) between all NUTS-regions the country. Next, the road network is overlayed with the 100x100 m River flood hazard from the [Joint Research Centre LISFLOOD-FP model](https://data.jrc.ec.europa.eu/dataset/85470f72-9406-4a91-9f1f-2a0220a5fa86), as described in [Dottori et al, (2021, under review)](https://essd.copernicus.org/preprints/essd-2020-313/essd-2020-313.pdf). Then, the percolation analysis begins. Each time, a synthetic flood event composing of one or multiple microfloods (Areas of Influence, originating from a 5x5 km grid cell) hits some roads in the network of the country, which are temporarily removed from the netwerk graph. For this disruption, the routes are recaculcated, and the differences with the undisturbed situation are measured with three Metrics. Having repeated this for many events with increasing magnitude, one can infer how the road network performance deteriorates from increasingly large floods.
 
 # Code overview
 Note that the paths are set in the config.json file, which is loaded in utils.py.<br />
 Besides these generic utils, there are some specific functions for handling data on the EU (NUTS) classification, in Europe_utils.py
 
 ### Step 0: Preprocessing with TRAILS (outside this Github)
-This step is done outside this Github project. First, the python package TRAILS is used to prepare clean graphs (iGraph objects) from an OpenStreetMap planet dump. This is done for individual countries. The network of each country is saved as an edges.feather (vertices) and nodes.feather file. This file format can be easily read with (Geo)Pandas. <br />
+This step is done outside this Github project. First, the python package [TRAILS](https://github.com/BenDickens/trails) is used to prepare clean graphs ([python iGraph objects](https://igraph.org/python/) from an OpenStreetMap planet dump. This is done for individual countries. The network of each country is saved as an edges.feather (vertices) and nodes.feather file. This file format can be easily read with (Geo)Pandas. <br />
 Second, the EFAS/LISFLOOD flood hazard data (100 m resolution) is intersected with the network edges. This adds the flood depth (m) per return period (e.g. 1:100 year event) to the network edges; i.e. the road segments in the network.
 
 ### Step 1: Preprocessing 
