@@ -3,6 +3,8 @@ This repo contains python code to do percolation analysis for road networks of 3
 
 In summary, the model works as follows. The road network of each country is fetched from [OpenStreetMap](http://www.openstreetmap.org). Then, the centroids of the Eurostat-2016 [NUTS-2 or NUTS-3 regions](https://ec.europa.eu/eurostat/web/nuts/background) within the country are determined, to calculate the preferred routes (shortest travel time) between all NUTS-regions the country. Next, the road network is overlayed with the 100x100 m River flood hazard from the [Joint Research Centre LISFLOOD-FP model](https://data.jrc.ec.europa.eu/dataset/85470f72-9406-4a91-9f1f-2a0220a5fa86), as described in [Dottori et al, (2021, under review)](https://essd.copernicus.org/preprints/essd-2020-313/essd-2020-313.pdf). Then, the percolation analysis begins. Each time, a synthetic flood event composing of one or multiple microfloods (Areas of Influence, originating from a 5x5 km grid cell) hits some roads in the network of the country, which are temporarily removed from the netwerk graph. For this disruption, the routes are recalculated, and the differences with the undisturbed situation are measured with three Metrics. Having repeated this for many events with increasing magnitude, one can infer how the road network performance deteriorates from increasingly large floods.
 <br /><br />
+
+The figure below shows an example flood event with large impact on the preferred routes (panel c) and travel time (panel c) in the network.
 ![Example event in Albania](visualisations/Paper_fig5and6/Figure_5.png)
 
 
