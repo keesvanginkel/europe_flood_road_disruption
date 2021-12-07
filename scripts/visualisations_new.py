@@ -295,7 +295,7 @@ def interp_rel_aoi(df_rel,col,country,percentages):
     arr = df_rel_c[['AoI relative combinations',col]].to_numpy()
     arr = np.insert(arr,obj=0,values=np.array([0,0]),axis=0) #add 0,0 point
     assert sorted(arr[:,0] == arr[:,0]) #check if list is sorted (needed for interpolation function)
-    interpolated = np.interp(x=asked_percentages,xp=arr[:,0],fp=arr[:,1])
+    interpolated = np.interp(x=percentages,xp=arr[:,0],fp=arr[:,1])
     return interpolated
 
 def process_no_detour(df):
