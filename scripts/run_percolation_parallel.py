@@ -80,6 +80,11 @@ class RunPercolation:
                                         (this .json file is made with visualisations/GFZ_JRC_datanew.ipynb)
 
         """
+
+        ####### DEPRECIATED ######
+
+        warnings.warn("""This version of the event sampling is depreciated, look into version 02 instead!!!""")
+
         assert nuts_class in ['nuts2','nuts3']
         if len(self.countries) > 1:
             warnings.warn("""This script is only suitable for running for one country at a time, 
@@ -149,7 +154,8 @@ class RunPercolation:
 
 
 
-if __name__ == '__main__':
+#if __name__ == '__main__':
+if False:
     #RUN THIS FOR REGULAR ANALYSIS AND UNCERTAINTY ANALYSIS
     #countries_ = N0_to_3L(['LT','LV','DK','MK','SI']) #Provide list of 3l-codes
     #countries_ = [N0_to_3L('LV')]
@@ -188,18 +194,21 @@ if __name__ == '__main__':
     # else:
     #     print("wrong input, use 'prep_par' or 'run_par (nr of cores)'")
 
-if False:
-#if __name__ == '__main__':
-    ### RUN THIS FOR EVENT SAMPLING ANALYSIS
+
+if __name__ == '__main__':
+    from percolation_event_based import *
+
+    ### RUN THIS FOR EVENT SAMPLING ANALYSIS (version 2)
     countries_ = ['DEU']
     nuts_level = 'nuts2'
-    config_file = 'config_DEU.json'
-    special_setting = 'event_based' #still unused
+    config_file = 'config_eventbased_2.json'
+    #special_setting = 'event_based' #still unused
 
     #Some unused declarations for initializing RUNNING object
     reps_ = None
     outputFolder = str(config['paths']['main_output']) + r'\{}'
-    print(outputFolder)
+
+    #Todo: do we need the below code for event-based sampling???
     cntrySetup_path = config['paths']['data'] / '{}_combinations.csv'.format(nuts_level)
     if not cntrySetup_path.exists():
         raise OSError(2, 'Cannot find the file prescribing the AoI sampling:', '{}'.format(cntrySetup_path))
@@ -207,29 +216,18 @@ if False:
         print('Reading the AoI sampling procedure from: {}'.format(cntrySetup_path))
     cntrySetup = pd.read_csv(cntrySetup_path, sep=';')
 
-
     config = load_config(file=config_file)
     # Run a small test to check if all the paths are well configured:
     for key, path in config['paths'].items():
         print(key, path, path.exists())
 
-    sampling_json = 'entire_basin_sampling.json'
-    # Show which sampling schemes are available
-    print("")
-    print("Available sampling schemes (prepared in GFZ_JRC_datanew.ipynb):")
-    for path in (config['paths']['data'] / 'sampling_data').iterdir():
-        if path.suffix == '.json':
-            print(path.stem, path)
-    print('Will use sampler: "{}"'.format(sampling_json))
-
     #Start with actual preparations
     #note that some of these are not used
-    running = RunPercolation(cntry_setup=cntrySetup, countries=countries_, reps=None,
-                             output_folder=outputFolder, config=config_file)
+
 
     #Prepare experiments
     #running.prep_par_event_sampling(nuts_class=nuts_level, sampling_json='entire_basin_sampling.json')
 
     #Run experiments
-    running.run_par(nr_cores=8)
+
 
