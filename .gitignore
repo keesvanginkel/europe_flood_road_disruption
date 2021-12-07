@@ -1,9 +1,16 @@
-visualisations
+visualisations/**
 .idea
+.idea/*
 .ipynb_checkpoints
 scripts/.ipynb_checkpoints
 scripts/__pycache__
 data
 todo.txt
 config.json
+config*.json
 conf-Copy1.json
+scripts/prepare_rhine_alpine.ipynb
+scripts/prepare_shifted_belgium.ipynb
+scripts/monitor*.py
+scripts/create_Z.py
+

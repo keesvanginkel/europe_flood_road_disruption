@@ -14,8 +14,11 @@ import numpy as np
 
 from warnings import warn
 
+import Europe_utils as eu
 from utils import load_config
 import pdb as pdb
+config_file = 'config-KeesWork.json' #also declared at the top of the file (ugly fix)
+config = load_config(config_file)
 
 #Suppress pandas SettingWithCopyWarning
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -43,62 +46,76 @@ def group_operations():
 
 group_operations = group_operations()
 
-# Everythin below  is a sort preprocessing step, before the actual plotting starts
-def aggregate_results_step1(ignore = [None]):
+
+
+# Everything below  is a sort preprocessing step, before the actual plotting starts
+def aggregate_results_step1(ignore = [None],config=None):
     """
     Function to aggregate the raw results of the percolation analysis
     
     Arguments:
         *ignore* (list of countries) : list of countries that you don't want to analyse e.g. ['denmark','latvia']
-    
+        *config* (configuration file) : output of load_config; if not provided, will load default config.json
     Effect:
         Aggregates the .csv files to higher levels in three steps
     """
-    
-    config = load_config()
+    if not config:
+        config = load_config()
     country_results_folder = config['paths']['main_output']
     #Example folder structure: country_results_folder/albania/finished/
 
     #Step 1: for each country, summarize individual samples to results per combination
-    print('aggregate_results(): Starting step 1/3:')
+    print('aggregate_results(): Starting step 1/2:')
     countries_paths = [x for x in country_results_folder.iterdir() if x.is_dir()]
     countries = [x.stem for x in countries_paths]
     print('Identified {} countries'.format(len(countries)))
-    for path in countries_paths:
-        if path.stem in ignore:
-            print('ignoring {}'.format(path))
-        else:
-            print('Start aggregating {}'.format(path))
-            finished_folder = path / 'finished'
-            if not finished_folder.exists():
-                raise OSError(2, 'Cannot find the folder containing \
-                              the raw results of the percolation analysis:',
-                              '{}'.format(path))
-            combine_finished_stochastic(finished_folder)
-            print('{}: Aggregated raw pickles per experiment, to .csv per # combinations'.format(path.stem))
+    print('To aggregate: {}'.format(countries))
+    print('To ignore: {}'.format(ignore))
+    while True:
+        if input('Do You Want To Continue? Press y to continue.') != 'y':
+            break
+        for path in countries_paths:
+            if path.stem in ignore:
+                print('ignoring {}'.format(path))
+            else:
+                print('Start aggregating {}'.format(path))
+                finished_folder = path / 'finished'
+                if not finished_folder.exists():
+                    raise OSError(2, 'Cannot find the folder containing \
+                                  the raw results of the percolation analysis:',
+                                  '{}'.format(path))
+                combine_finished_stochastic(finished_folder)
+                print('{}: Aggregated raw pickles per experiment, to .csv per # combinations'.format(path.stem))
 
-def aggregate_results_step2(ignore = [None]):
+def aggregate_results_step2(ignore = [None],config=None):
     """
-    Todo: improve docstring
+    Function to aggregate the raw results of the percolation analysis
+
+    Arguments:
+        *ignore* (list of countries) : list of countries that you don't want to analyse e.g. ['denmark','latvia']
+        *config* (configuration file) : output of load_config; if not provided, will load default config.json
+    Effect:
+        Aggregates the .csv files to higher levels in three steps
     
     """
     
-    #Step 2: for each country, summarize combinations in a dataframe
-    config = load_config()
+    #Step 2a: for each country, summarize combinations in a dataframe
+    if not config:
+        config = load_config(config_file)
     country_results_folder = config['paths']['main_output']
     
     print('Starting step 2:')
     countries_paths = [x for x in country_results_folder.iterdir() if x.is_dir()]
-    countries = [x.stem for x in countries_paths]
+    countries = [x.stem for x in countries_paths if x.stem not in ignore]
     
     
     
     folders = [df_stochastic_results(folder=country_results_folder / c / 'finished') for c in countries]
     dict_dfs = dict(zip(countries, folders)) #keys are countries, values dataframes with results
 
-    #Step 3: Summarize the results of all countries
+    #Step 2b: Summarize the results of all countries
     #folder_results = r'D:\COACCH_paper\data\output\{}'
-    print('Starting step 3')
+    print('Starting step 2b:')
     # group the dataframes
     for c in countries:
         temp_df = dict_dfs[c]
@@ -106,11 +123,11 @@ def aggregate_results_step2(ignore = [None]):
         dict_dfs[c] = temp_df
 
     df = pd.concat(list(dict_dfs.values()), sort=False)
-    df.to_csv(country_results_folder / 'all_combinations.csv')
+    df.to_csv(country_results_folder / 'all_combinations.csv',sep=';')
 
 def combine_finished_stochastic(finished_folder):
     """Combines the separate csv files create by the parallel processed stochastic results.
-    
+
     Arguments:
         input_path (string): path to the folder where the separate csv's are saved. e.g. 'albania/finished'
 
@@ -128,11 +145,13 @@ def combine_finished_stochastic(finished_folder):
     for folder in finished_folder.iterdir():
         if folder.is_dir():
             files = [f for f in folder.iterdir()]
-            df = pd.read_csv(files[0])
+            df = pd.read_csv(files[0],sep=';',index_col=0)  #avoid empty column
+            df.index = [int(files[0].stem)] #use filename as index
             for file in files[1:]:
-                df_add = pd.read_csv(file)
+                df_add = pd.read_csv(file,sep=';',index_col=0)
+                df_add.index = [int(file.stem)]  # use filename as index
                 df = pd.concat([df, df_add], sort='False')
-            df.to_csv(finished_folder / "aoi_{}.csv".format(folder.stem))
+            df.to_csv(finished_folder / "aoi_{}.csv".format(folder.stem),sep=';')
 
         print('Combine_finished_stochastic finished for {}'.format(folder))
 
@@ -153,20 +172,21 @@ def df_stochastic_results(folder):
     # load data
     df = pd.DataFrame(columns=['AoI combinations', 'disrupted', 'avg extra time', 'AoI removed', 'no detour'])
     for f in files:
-        df_new = pd.read_csv(os.path.join(folder, f))
-        df = pd.concat([df, df_new], ignore_index=True, sort=False)
+        df_new = pd.read_csv(os.path.join(folder, f),sep=';',index_col=0)
+        df = pd.concat([df, df_new], sort=False) #ignore_index=True
 
     df['AoI combinations'] = df['AoI combinations'].astype(int)
     return df
 
 ######################################## SOME MAIN FUNCTIONALITY NEEDED FOR MANY VISUALISATIONS ##########################
-def main(config):
+def main(config,constrain_reps=None):
     """
     Reads the (merged) outputs of the percolation analysis, and does some basic assembly work which is useful
     for many visualisations.
 
     Arguments:
         *config* (dict) : containing the configuration paths
+        *constrain_reps* (int) : constrain the number of combinations per numer of aois (default=None)
 
     Returns:
         *df* (DataFrame) : the raw results
@@ -183,8 +203,8 @@ def main(config):
                             maybe you need to run aggregate_results_step2() first!
                             Missing: """, csv_file)
 
-    df = pd.read_csv((csv_file),index_col=0,sep=',')
-    df = df.drop(columns=['Unnamed: 0.1', 'Unnamed: 0.1.1'])
+    df = pd.read_csv((csv_file),index_col=0,sep=';')
+    #df = df.drop(columns=['Unnamed: 0.1', 'Unnamed: 0.1.1'])
     print('Succesfully loaded source file as dataframe, with columns:')
     print(df.columns)
     print('Available for {} countries'.format(len(df.country.unique())))
@@ -194,6 +214,32 @@ def main(config):
     print('Grouping per AoI-country combination')
     max_aoi_comb = df.groupby('country')["AoI combinations"].max().to_dict()
 
+    #If requested (kwargs), only select the first n repetitions per country
+    if constrain_reps is not None:
+        warn('Number of repetitions per #aoi is constrained to {}'.format(constrain_reps))
+
+        #create a copy of df
+        df2 = df.copy()
+        df = pd.DataFrame(columns=df2.columns)
+
+        for cntr in available_countries:
+            df_temp = select_n_reps(df2.loc[df2['country'] == cntr.capitalize()], constrain_reps)
+
+            #Determine if there are enough samples
+            comb_per_aoi = df_temp.groupby('AoI combinations').size()
+            missing = comb_per_aoi.loc[comb_per_aoi != constrain_reps] #pd Series; index = nr AoI combs; value = reps
+            for nr_aoi, reps in missing.items():
+                max_aoi = max_aoi_comb[cntr.capitalize()]
+                if nr_aoi == max_aoi:
+                    pass #do nothing, because it is expected that only 1 combination exists for all AoIs at the same time
+                elif nr_aoi == 1:
+                    pass #do nothing, because this is expected if constrain_reps > total aoi in country
+                else:
+                    warn('{}: Only {} repetitions for {} AoIs at the same time'.format(cntr,reps,nr_aoi))
+
+            df = df.append(df_temp)
+
+    #Calculate all relative AoI scores.
     for cntr in available_countries :
         df.loc[df['country'] == cntr.capitalize(), 'AoI relative combinations'] = \
             df.loc[df['country'] == cntr.capitalize(), "AoI combinations"] / \
@@ -205,6 +251,52 @@ def main(config):
 
     print(' -------- main() finished --------')
     return(df,df_abs,df_rel)
+
+def select_n_reps(df_country, n):
+    """
+    Select the first n repetitions from the percolation analysis and returns the input dataframe with only this selection
+
+    e.g. df_country = df.loc[df['country'] == 'Belgium'] #with df being the raw percolation result from main()
+         n = 200
+
+    returns: *sel* (DataFrame) - similar to df_country, but only the first n reps per aoi
+
+    """
+    sel = pd.DataFrame(columns=df_country.columns)
+    aois_unique = sorted(list(df_country['AoI combinations'].unique()))
+    for i, aois in enumerate(aois_unique):
+        # print(i,aois)
+        subsel = df_country[df_country['AoI combinations'] == aois].reset_index(drop=True)
+        # select top-n valuesd
+        if subsel.shape[0] >= n:
+            subsel = subsel.iloc[0:n]
+        # print(subsel.shape)
+        sel = sel.append(subsel)
+    sel = sel.reset_index(drop=True)
+    return sel
+
+def interp_rel_aoi(df_rel,col,country,percentages):
+    """
+    Linearly interpolate the dataframe with relative AoI combinations to find given percentages
+    
+    Arguments:
+        *df_rel* (DataFrame) : output of main()
+        *col* (str) : name of the column to interp. 
+                e.g. 'min', 'q_05', 'q_25', 'mean', 'q_75', 'q_95', 'max'
+        *country* (str) : full country (e.g. 'Belgium')
+        *percentages* (list of x-coordinates, i.e. the percentages for which to find the metric score
+
+    Returns:
+        *interpolated* (np Array) : the interpolated values
+    """
+
+    df_rel_c = df_rel.loc[df_rel['country'] == country]
+    df_raw = df_rel_c[['AoI relative combinations',col]].set_index('AoI relative combinations')
+    arr = df_rel_c[['AoI relative combinations',col]].to_numpy()
+    arr = np.insert(arr,obj=0,values=np.array([0,0]),axis=0) #add 0,0 point
+    assert sorted(arr[:,0] == arr[:,0]) #check if list is sorted (needed for interpolation function)
+    interpolated = np.interp(x=asked_percentages,xp=arr[:,0],fp=arr[:,1])
+    return interpolated
 
 def process_no_detour(df):
     """
@@ -294,14 +386,19 @@ def calc_total_extra_time(df,countries=[],N2=[]):
 
         df_sel = df.loc[df['country']==country]
         df = df.loc[df['country']!=country] #remainder
+
+        actual_nr_routes = check_actual_routes() #Todo: dirty fix to enable dashboard because this is not run outside the __main__
+
         if not c in N2: #calculatoin on NUTS-3
             #nr_routes = routes.at[c,'N3_nr_routes'] #depreciated, beter to derive from the preproc results
             nr_routes = actual_nr_routes[c]
         elif c in N2: #calculation on NUTS-2
-            nr_routes = routes.at[c, 'N2_nr_routes']
+            #nr_routes = routes.at[c, 'N2_nr_routes']
+            nr_routes = actual_nr_routes[c]
 
         print(country,c,nr_routes)
         df_sel['disrupted_routes'] = df_sel['disrupted'] * nr_routes / 100
+        #pdb.set_trace()
         are_close = [isclose(n_routes, round(n_routes), abs_tol=0.0001) for
                      n_routes in df_sel['disrupted_routes'].unique()]
         if False in are_close: #If any of the value is not close to an integer
@@ -421,7 +518,7 @@ def boxplots_multiple_countries_v1(df,save=False):
     #fig.suptitle("")
 
     if save:
-        output_images = load_config()['paths']['output_images']
+        output_images = load_config(config_file)['paths']['output_images']
         plt.savefig(output_images / 'country_comparison_error.png')
 
     return fig, (ax1,ax2,ax3)
@@ -458,7 +555,7 @@ def plotly_plot(df,countries):
         title_text="% of combinations of micro-floods (AoI's) of the maximum number of micro-floods per country")
     fig.update_yaxes(title_text='% optimal routes disrupted')
 
-    save_figs = load_config()['paths']['output_images']
+    save_figs = load_config(config_file)['paths']['output_images']
     plot(fig, filename=(str(save_figs / 'country_comparison_relative.html')))
 
     fig = px.box(df.loc[df['AoI combinations'] < 10], x="AoI combinations", y="disrupted", color="country")
@@ -471,7 +568,7 @@ def plotly_plot(df,countries):
     #Todo: on y-axis, show absolute values on the y-axis
     #Todo: IN the absolute plot: show more values
 
-def boxplot_one_country(df,country,AoIs= 'All',save=False,fig=None,ax=None):
+def boxplot_one_country(df,country,AoIs= 'All',save=False,fig=None,ax=None,**kwargs):
     """
     Fred. line 133-139
 
@@ -482,6 +579,8 @@ def boxplot_one_country(df,country,AoIs= 'All',save=False,fig=None,ax=None):
         *countries* (string) : (string) name of country to plot
         *positions* (list) : e.g. [1,2,3,4] # nr of AoIs to make boxplots for, default 'All'
         *save* (Boolean) : should the file be saved in the folder config['paths']['output_images']
+        *kwargs* : additional keyword arguments will be passed to df.boxplot()
+
 
     Effect:
         Shows the plot
@@ -494,13 +593,13 @@ def boxplot_one_country(df,country,AoIs= 'All',save=False,fig=None,ax=None):
     if (fig == None and ax == None):  # if No axes and no figure is provided
         fig, ax = plt.subplots(figsize=(12, 6))
 
-    df.boxplot(by='AoI combinations', column='disrupted', ax=ax)
+    df.boxplot(by='AoI combinations', column='disrupted', ax=ax,grid=False,**kwargs)
     ax.set_xlabel("Number of combinations of flood events (AoI)")
     ax.set_ylabel("% preferred routes disrupted")
     ax.set_title("% routes between NUTS-3 regions in {} disrupted".format(country))
 
     if save:
-        save_figs = load_config()['paths']['output_images'] / 'disrupted'
+        save_figs = load_config(config_file)['paths']['output_images'] / 'disrupted'
         if not save_figs.exists(): save_figs.mkdir()
         filename = "disrupted_boxplot_{}.png".format(country)
         fig.savefig(save_figs / filename)
@@ -552,7 +651,7 @@ def aggregated_lineplot_new(df_agg,countries,fill_between=('min','max'),save=Fal
     #Todo: add function to link country names with official codes NUTS0
 
     if save: #TODO REPLACE ALL INSTANCES OF THIS PART OF CODE WITH A SPECIAL FUNCTION
-        save_figs = load_config()['paths']['output_images'] / 'aggregate_line'
+        save_figs = load_config(config_file)['paths']['output_images'] / 'aggregate_line'
         if not save_figs.exists(): save_figs.mkdir()
         filename = "aggregateline_{}_{}.png".format('-'.join(countries),fill_between[0] + '-' + fill_between[1])
         if relative: filename = "aggregateline_{}_{}_relative.png".format(\
@@ -595,7 +694,7 @@ def calculate_metrics(df_rel):
 
     return df_metrics
 
-def no_detour_boxplot(df,country,save=False,fig=None, ax=None):
+def no_detour_boxplot(df,country,save=False,fig=None, ax=None,**kwargs):
     """
     Creates boxplot of %OD-pairs with no detour for one country
 
@@ -605,7 +704,8 @@ def no_detour_boxplot(df,country,save=False,fig=None, ax=None):
         *df* (DataFrame) : raw model results
         *country* (string) : Country name e.g. 'Albania'
         *save* (boolean) : should the file be saved in the folder config['paths']['output_images']
-        *fig,ax* (matplotlib) : fig and ax to add the figure to; make new if not provided
+        *fig,ax* (matplotlib) : fig and ax to add the figure to; make new if not provided        
+        *kwargs* : additional keyword arguments will be passed to df.boxplot()
 
     """
     df = df.loc[df['country'] == country]
@@ -613,7 +713,7 @@ def no_detour_boxplot(df,country,save=False,fig=None, ax=None):
     if (fig == None and ax == None):  # if No axes and no figure is provided
         fig, ax = plt.subplots(figsize=(12, 6))
 
-    df.boxplot(by='AoI combinations', column='no detour', ax=ax)
+    df.boxplot(by='AoI combinations', column='no detour', grid=False, ax=ax,**kwargs)
     ax.set_xlabel("Number of combinations of flood events (AoI)")
     ax.set_ylabel("% No detour")
     ax.set_title("% routes between NUTS-3 regions in {} without detour".format(country))
@@ -621,7 +721,7 @@ def no_detour_boxplot(df,country,save=False,fig=None, ax=None):
     #Todo (possible): give fig ax as args; enable saving possiblity
 
     if save:  # TODO REPLACE ALL INSTANCES OF THIS PART OF CODE WITH A SPECIAL FUNCTION
-        save_figs = load_config()['paths']['output_images'] / 'no_detour_boxplot'
+        save_figs = load_config(config_file)['paths']['output_images'] / 'no_detour_boxplot'
         if not save_figs.exists(): save_figs.mkdir()
         filename = "noDT_boxplot_{}.png".format(country)
         fig.savefig(save_figs / filename)
@@ -675,7 +775,7 @@ def no_detour_aggregated_lineplot(no_dt_, countries, fill_between=('min', 'max')
 
 
     if save:  # TODO REPLACE ALL INSTANCES OF THIS PART OF CODE WITH A SPECIAL FUNCTION
-        save_figs = load_config()['paths']['output_images'] / 'no_detour_aggregated_line'
+        save_figs = load_config(config_file)['paths']['output_images'] / 'no_detour_aggregated_line'
         if not save_figs.exists(): save_figs.mkdir()
         filename = "noDT_aggregateline_{}_{}.png".format('-'.join(countries), fill_between[0] + '-' + fill_between[1])
         if relative: filename = "noDT_aggregateline_{}_{}_relative.png".format( \
@@ -684,7 +784,7 @@ def no_detour_aggregated_lineplot(no_dt_, countries, fill_between=('min', 'max')
 
     return fig, ax
 
-def extra_time_boxplot(df,country,unit='sec',save=False,fig=None, ax=None):
+def extra_time_boxplot(df,country,unit='sec',save=False,fig=None, ax=None,**kwargs):
     """
     Creates boxplot of average (of all detour times) additional detour time per # AoIs
 
@@ -696,6 +796,7 @@ def extra_time_boxplot(df,country,unit='sec',save=False,fig=None, ax=None):
         *country* (string) : Country name e.g. 'Albania'
         *save* (boolean) : should the file be saved in the folder config['paths']['output_images']
         *fig,ax* (matplotlib) : fig and ax to add the figure to; make new if not provided
+        *kwargs* : additional keyword arguments will be passed to df.boxplot()
 
 
     """
@@ -715,14 +816,14 @@ def extra_time_boxplot(df,country,unit='sec',save=False,fig=None, ax=None):
     if (fig == None and ax == None):  # if No axes and no figure is provided
         fig, ax = plt.subplots(figsize=(12, 6))
 
-    df.boxplot(by='AoI combinations', column=[col], ax=ax)
+    df.boxplot(by='AoI combinations', column=[col], ax=ax,grid=False,**kwargs)
     ax.set_xlabel("Number of combinations of flood events (AoI)")
     ax.set_ylabel("average extra time [{}]".format(unit))
     ax.set_title("Average additional time for disrupted routes between NUTS-regions in {}".format(country))
 
 
     if save:  # TODO REPLACE ALL INSTANCES OF THIS PART OF CODE WITH A SPECIAL FUNCTION
-        save_figs = load_config()['paths']['output_images'] / 'extra_time_boxplot'
+        save_figs = load_config(config_file)['paths']['output_images'] / 'extra_time_boxplot'
         if not save_figs.exists(): save_figs.mkdir()
         filename = "extratime_boxplot_{}.png".format(country)
         fig.savefig(save_figs / filename)
@@ -777,7 +878,7 @@ def extra_time_aggregated_lineplot(extra_time_, countries, fill_between=('min', 
 
 
     if save:  # TODO REPLACE ALL INSTANCES OF THIS PART OF CODE WITH A SPECIAL FUNCTION
-        save_figs = load_config()['paths']['output_images'] / 'extra_time_line'
+        save_figs = load_config(config_file)['paths']['output_images'] / 'extra_time_line'
         if not save_figs.exists(): save_figs.mkdir()
         filename = "extra_time_aggregateline_{}_{}.png".format('-'.join(countries), fill_between[0] + '-' + fill_between[1])
         if relative: filename = "extra_time_aggregateline_{}_{}_relative.png".format( \
@@ -833,7 +934,7 @@ def total_extra_time_aggregated_lineplot(extra_time_, countries, fill_between=('
 
 
     if save:  # TODO REPLACE ALL INSTANCES OF THIS PART OF CODE WITH A SPECIAL FUNCTION
-        save_figs = load_config()['paths']['output_images'] / 'total_extra_time_line'
+        save_figs = load_config(config_file)['paths']['output_images'] / 'total_extra_time_line'
         if not save_figs.exists(): save_figs.mkdir()
         filename = "total_extra_time_aggregateline_{}_{}.png".format('-'.join(countries),
                                                                      fill_between[0] + '-' + fill_between[1])
@@ -904,7 +1005,8 @@ def check_actual_routes():
 if __name__ == '__main__':
 
     #Load configuration file
-    config = load_config()
+    config_file = 'config-KeesWork.json' #also declared at the top of the file (ugly fix)
+    config = load_config(config_file)
 
     #Derive how actual preferred routes were calculated in the preprocessing
     actual_nr_routes = check_actual_routes()
@@ -930,12 +1032,25 @@ if __name__ == '__main__':
     #with open(dest,'wb') as f:
     #    pickle.dump(groups_version1,f)
 
+    #Group by country area
+    #Load second group version
+    print('tot hier')
+    import json
+    group_file = config['paths']['data'] / 'groups' / '6groupsof6_byactivesize.json'
+    with open(group_file, 'rb') as f:
+        groups = json.load(f)
+    groups = groups['groups']
+
     fill_between=('q_05','q_95')
 
     ### Make aggregated lineplots
     #for countries in groups_version1:
          #you can change the df_rel and df_abs here; and the fill_between=('q_25','q_75') or ('min','max')
          #aggregated_lineplot_new(df_abs,countries,fill_between=fill_between,save=True) #
+
+    for group in groups.values():
+        countries = eu.country_names(group)
+        aggregated_lineplot_new(df_rel,countries,fill_between=fill_between,save=True)
 
     # countries = ['Portugal','Slovakia']
     # aggregated_lineplot_new(df_rel, countries, save=True)  #

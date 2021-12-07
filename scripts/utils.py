@@ -4,13 +4,14 @@ from pathlib import Path
 from shutil import copyfile
 
 
-def load_config():
+
+def load_config(file='config.json'):
     """
-    Read config.json
+    Read config.json (or an alternative file)
     NOTE: make sure your working directory is set to the highest level folder in the directory
 
     Arguments:
-        No arguments
+        *file* (string) : pathname of file located in working directory (default: config.json)
 
     Returns:
         *config* (dict) : Dict with structure:
@@ -19,7 +20,7 @@ def load_config():
                       [another key]
     @author: Kees van Ginkel
     """
-    config_path = Path(__file__).parents[1] / 'config.json'
+    config_path = Path(__file__).parents[1] / file
 
     with open(config_path, 'r') as config_fh:
         config = json.load(config_fh)
@@ -46,8 +47,6 @@ def highway_mapper():
         'tertiary' : 'tertiary',
         'tertiary_link' : 'tertiary'}
     return highway_mapper
-
-
 
 def smart_AoI_copy(origin,destination,skip=[None]):
     """
@@ -91,3 +90,11 @@ def smart_AoI_copy(origin,destination,skip=[None]):
 # skip.extend(['albania','austria','belgium','bulgaria','croatia','czechia','denmark'])
 # print(skip)
 # smart_AoI_copy(origin,destination,skip=skip)
+
+if __name__ == '__main__':
+    print('utils.py is running a test procedure')
+    print('Existence of config paths is tested')
+    config = load_config()
+    for key, path in config['paths'].items():
+        print(key, path, path.exists())
+

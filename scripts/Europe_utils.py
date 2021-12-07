@@ -9,6 +9,10 @@ import warnings
 
 from utils import load_config
 
+from shapely.geometry import Point
+
+from math import ceil, floor
+
 # Load configuration file
 config = load_config()
 
@@ -37,6 +41,8 @@ def L3_to_N0(L3_codes):
     Returns in the same format
 
     df contains data: replace with import from config
+    
+    ISSUE NOT necessarily in the right order!!!
     """
     data = config['paths']['data']
     df = pd.read_csv((data / 'country_codes.csv'), delimiter=';', index_col='code3')
@@ -69,8 +75,11 @@ def country_names(country_codes):
         country_codes = [country_codes]
         unpack = True
     sel = list(df.loc[df.index.isin(country_codes)].values)
+    
+    
     if unpack: sel = sel[0]
     return sel
+
 
 def country_code_from_name(country_names,l3=False):
     """2 letter ['BE'] or 3 letter codes ['BEL'] from country names
@@ -82,6 +91,8 @@ def country_code_from_name(country_names,l3=False):
         
     Returns
         *sel* (string or list of strings) : 2l or 3l codes
+        
+        #Todo: issue, not capital sensitive
     """
 
     if True:
@@ -111,7 +122,7 @@ def ignore_countries():
     countries.append('TR') #outside flood hazard domain
     return countries
     
-    
+
 def NUTS_3_remote(**kwargs):
     """
     Returns a list with remote NUTS-3 regions you probably don't want to plot
@@ -150,10 +161,49 @@ def NUTS_3_remote(**kwargs):
 def NUTS_3_islands():
     """Filter out additional Islands, which are not included in NUTS_3_remote()
     
-    Returns a list with NUTS-3 regions you probably do not want to include in a road network analysis
+    Returns a list with NUTS-3 regions you probably do not want to include in a road network analysis but still want
+    to plot as part of the country (these are not so super remote as the NUTS-3 remote functions)
+
+    Todo: sync with preprocess_routes.py line 42-63 (overseas = [])
     """
-    islands = ['FRM01','FRM02'] #Corsica
+    islands = ['FRM01','FRM02'] #Corse
+    islands.extend(['UKN06','UKN07','UKN08','UKN09','UKN10','UKN11','UKN12',
+                    'UKN13','UKN14','UKN15','UKN16']) #Northern Island, not connected to mainland UK
+    islands.extend(['UKM66','UKM65','UKM64'])
+    islands.extend(['ITG25','ITG26','ITG27','ITG28','ITG29','ITG2A','ITG2B','ITG2C']) #IT Sardegna
+    islands.extend(['ITG11','ITG12','ITG13','ITG14','ITG15','ITG16','ITG17','ITG18','ITG19']) #IT Sicilia
+    islands.extend(['EL307', 'EL411', 'EL412', 'EL413', 'EL421', 'EL422',
+                    'EL431', 'EL432', 'EL433', 'EL434', #Creta
+                    'EL621', 'EL622', 'EL623'])  # Greece
+    islands.extend(['ES531', 'ES532', 'ES533']) # Spain: Mailorca et al.
+    islands.extend(['HR037']) # Croatia
+    islands.extend(['FI200'])  # Finland
+    islands.extend(['SE214'])  # Sweden
+    islands.extend(['DK014'])  # Denmark: island in Bornhom
     return islands
+
+def NUTS_2_islands():
+    """List of islands on NUTS-2 level, which are not included in NUTS_2_remote()
+    """
+    islands = ["FRM0"] #Corse
+    islands.extend(['UKN0']) #Northern island
+    islands.extend(['ITG1','ITG2']) #Sicilia and Sardegna
+    islands.extend(['EL43']) #Creta
+    return islands
+
+def NUTS_3_Flanders():
+    """Returns list of NUTS-3 regions in Flanders """
+    flanders = ['BE223', 'BE231', 'BE234', 'BE235', 'BE232', 'BE233', 'BE236', 'BE241',
+                'BE242', 'BE251', 'BE252', 'BE100', 'BE255', 'BE256', 'BE253', 'BE254',
+                'BE257', 'BE258', 'BE324', 'BE211', 'BE212', 'BE213', 'BE221', 'BE222']
+    return flanders
+
+def NUTS_3_Wallonia():
+    """Returns list of NUTS-3 regions in Wallonia """
+    wallonia = ['BE341', 'BE344', 'BE345', 'BE342', 'BE343', 'BE352', 'BE351', 'BE353',
+                'BE335', 'BE336', 'BE310', 'BE334', 'BE323', 'BE321', 'BE322', 'BE325',
+                'BE326', 'BE332', 'BE327', 'BE331']
+    return wallonia
 
 def create_gridlines(ps,ms,point_spacing=1000):
     """
@@ -219,3 +269,4 @@ if __name__ == '__main__':
         warnings.warn('Output data folder misses file country_codes.csv, NUTS-letter conversion function will not work.'.format(output_data))
 
     print(N0_to_3L(['BE','NL']))
+

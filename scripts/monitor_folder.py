@@ -3,7 +3,8 @@ import os
 import tqdm as tqdm
 import time as time
 
-to_eval = Path(r"P:\osm_flood\network_analysis\data\main_output_moreruns")  # Path to evaluate
+
+to_eval = Path("D:\Europe_percolation\combined_results\combined_main_output")
 assert to_eval.exists()
 
 countries = list(to_eval.glob('*'))
@@ -45,7 +46,7 @@ n_finished = initial_finished
 old_value = initial_finished
 with tqdm.tqdm(total=n_scheduled,initial=initial_finished) as pbar:
     while n_finished < n_scheduled:
-        time.sleep(120)
+        time.sleep(10)
         n_finished = len(list(finished_p.glob('**/*.csv')))
         increment = n_finished - old_value
         pbar.update(increment)
