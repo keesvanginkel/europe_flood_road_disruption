@@ -9,6 +9,7 @@ The figure below shows an example flood event with large impact on the preferred
 
 
 # Code overview
+![Model flow chart](visualisations/Model_flow_chart.png)
 Note that the paths are set in the config.json file, which is loaded in utils.py.<br />
 Besides these generic utils, there are some specific functions for handling data on the EU (NUTS) classification, in Europe_utils.py
 
