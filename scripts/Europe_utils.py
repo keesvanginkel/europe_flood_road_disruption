@@ -84,6 +84,7 @@ def country_names(country_codes):
 def country_code_from_name(country_names,l3=False):
     """2 letter ['BE'] or 3 letter codes ['BEL'] from country names
     Accepts string or list of strings e.g, 'Serbia' or ['Belgium','Slovakia']
+    Update 3/1/2022: also accepts non uppercase titles, e.g. ['united Kingdom', 'hungary']
     
     Arguments:
         *country_names* (string or list of strings) : country names
@@ -91,8 +92,7 @@ def country_code_from_name(country_names,l3=False):
         
     Returns
         *sel* (string or list of strings) : 2l or 3l codes
-        
-        #Todo: issue, not capital sensitive
+
     """
 
     if True:
@@ -109,7 +109,8 @@ def country_code_from_name(country_names,l3=False):
         if not isinstance(country_names, list):
             country_names = [country_names]
             unpack = True
-        sel = list(df.loc[df.country.isin(country_names)][code_col])
+        capitalized_names = [name.title() for name in country_names]
+        sel = list(df.loc[df.country.isin(capitalized_names)][code_col])
         if unpack: sel = sel[0]
     return sel
 
