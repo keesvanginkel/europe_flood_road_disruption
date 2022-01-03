@@ -145,27 +145,25 @@ class RunPercolation:
 
             # Carry out the scheduled experiments
             print('Run_par() starting scheduled experiments for {}'.format(ctr))
-            with Pool(int(nr_cores)) as pool:
-                pool.map(stochastic_network_analysis_phase2, todo, chunksize=1)
-            #stochastic_network_analysis_phase2(todo[0]) #useful for bugfixing
+            #with Pool(int(nr_cores)) as pool:
+                #pool.map(stochastic_network_analysis_phase2, todo, chunksize=1)
+            stochastic_network_analysis_phase2(todo[0]) #useful for bugfixing
             print('Percolation analysis finished for:', ctr)
 
 
 
 
 
-#if __name__ == '__main__':
-if False:
+if __name__ == '__main__':
     #RUN THIS FOR REGULAR ANALYSIS AND UNCERTAINTY ANALYSIS
     #countries_ = N0_to_3L(['LT','LV','DK','MK','SI']) #Provide list of 3l-codes
-    #countries_ = [N0_to_3L('LV')]
-    countries_ = [N0_to_3L('BE')]
+    countries_ = [N0_to_3L('HU')]
     nuts_level = 'nuts3'
-    reps_ = 2000 #Repetitions per #AoIs
-    #constrain_reps_ = 200 #Schedule all, but only run these first.
+    reps_ = 200 #Repetitions per #AoIs
+    constrain_reps_ = 10 #Schedule all, but only run these first.
 
     #Read the set-up per country
-    config_file = 'config_unc.json'
+    config_file = 'config.json'
     config = load_config(file=config_file)
     #Run a small test to check if all the paths are well configured:
     for key, path in config['paths'].items():
@@ -181,7 +179,7 @@ if False:
     print(outputFolder)
 
     running = RunPercolation(cntry_setup=cntrySetup, countries=countries_, reps=reps_,
-                             output_folder=outputFolder,config=config_file,special_setting='giant_component')
+                             output_folder=outputFolder,config=config_file,special_setting=None)
 
     #running.prep_par()
     running.run_par(nr_cores=7)
@@ -194,8 +192,8 @@ if False:
     # else:
     #     print("wrong input, use 'prep_par' or 'run_par (nr of cores)'")
 
-
-if __name__ == '__main__':
+if False:
+#if __name__ == '__main__':
     from percolation_event_based import *
 
     ### RUN THIS FOR EVENT SAMPLING ANALYSIS (version 2)

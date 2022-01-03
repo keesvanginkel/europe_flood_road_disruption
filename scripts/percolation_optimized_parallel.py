@@ -28,9 +28,10 @@ import warnings
 from utils import load_config
 
 # translation between countrycodes (2- and 3-letter and country names)
-#Todo: these config loads should be avoided
-config = load_config(file='config-KeesWork.json')
+#Todo: these config loads should be avoided; directly load from europe_utils
+config = load_config(file='config.json')
 country_codes = config['paths']['data'] / 'country_codes.csv'
+warnings.warn("""Still need to fix issue with loading country codes here""")
 translate_cntr_codes = pd.read_csv(country_codes, delimiter=';').set_index('code3').to_dict(orient='dict')
 
 # set paths
