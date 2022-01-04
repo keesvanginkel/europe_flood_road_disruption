@@ -6,6 +6,7 @@
 	"NUTS_shapes" : "D:\\Europe_trade_disruptions\\NUTS-2_shapes\\NUTS_2016",
 	"graphs_folder" : "D:\\Europe_percolation\\trails_networks",
     "preproc_output" : "D:\\Europe_percolation\\preproc_output",
-	"main_output" : "D:\\Europe_percolation\\main_output"
+	"main_output" : "D:\\Europe_percolation\\main_output",
+	"logs" : "D:\\Python\\europe_flood_road_disruption\\logs"
   }
 	}
