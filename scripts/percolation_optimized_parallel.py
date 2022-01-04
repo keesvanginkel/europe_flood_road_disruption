@@ -27,6 +27,8 @@ import warnings
 
 from utils import load_config
 
+import logging
+
 # translation between countrycodes (2- and 3-letter and country names)
 #Todo: these config loads should be avoided; directly load from europe_utils
 config = load_config(file='config.json')
@@ -205,6 +207,23 @@ def stochastic_network_analysis_phase1_event_sampling(config_file,country_code3,
     with open(filename, 'wb') as f:
         pickle.dump((nr_comb, aoi, i, current_country, country_code3, nuts_class), f)
 
+def make_pool_logger_phase2():
+    """
+    Create a logger for phase 2, that works with parallel processing.
+
+    """
+    logFormatter = logging.Formatter(
+        "%(asctime)s [%(threadName)-12.12s] [%(funcName)20s()] [%(levelname)-5.5s]  %(message)s")
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+
+    consoleHandler = logging.StreamHandler()
+    consoleHandler.setFormatter(logFormatter)
+    logger.addHandler(consoleHandler)
+
+    #logger.info('Logger is created')
+    return logger
+
 def stochastic_network_analysis_phase2(tup):
     """
     Carry out the percolation analysis which has been scheduled in phase 1.
@@ -215,6 +234,7 @@ def stochastic_network_analysis_phase2(tup):
                 config_file (str)            : name of the config file, to be given to load_config from utils.py
                 nr_comb (int)               : number of combinations, i.e. microfloods sampled at the same time
                 aoi (int or list of int)    : the microfloods sampled
+                i
                 country_name (string)       : full lowercase country name (e.g. 'belgium')
                 country_code3 (str)         : 3-letter countryname (e.g. 'BEL')
                 nuts_level (str)            : can be 'nuts3' or 'nuts2'
@@ -223,138 +243,175 @@ def stochastic_network_analysis_phase2(tup):
                         'giant_component'   : analyse the size of the giant component (largest connected cluster)
                         'depth_threshold'   : impose water depth threshold on the removal of edges
                     Other special settings are already imposed in the preprocessing step
-
+                G (igraph Graph object)     : the undisturbed network graph
     Returns: None
 
     Effect:
         Write results of the percolation analysis to the 'main_output/*name*/finished' path set in the config file
     """
-    assert len(tup) == 8 #make sure the right number of arg is given to the function
+    # INSTANTIATE LOGGING FUNCTIONALITY
+    logger = make_pool_logger_phase2()
+    #logger.info('We are now logging phase 2 within the pool')
+
+    start = time.time()
+
+    #todo: check if Graph Object indeed has the right number of edges and nodes
+
+    #update version > 1.0
+    assert len(tup) == 9
 
     # unpack tuple
-    config_file, nr_comb, aoi, i, country_name, country_code3, nutsClass, special_setting = \
-        tup[0], tup[1], tup[2], tup[3], tup[4], tup[5], tup[6], tup[7]
+    config_file, nr_comb, aoi, i, country_name, country_code3, nutsClass, special_setting, G = \
+        tup[0], tup[1], tup[2], tup[3], tup[4], tup[5], tup[6], tup[7], tup[8]
 
     config = load_config(file=config_file)
 
-    #special_setting = 'giant_component' #'depth_threshold', 'giant_component'
-    #depth_threshold = 0. #depth threshold in m.
-    if special_setting is not None:
-        extension = ""
-        if special_setting == 'depth_threshold':
-            extension = extension + "Threshold: " + str(depth_threshold) + " m"
-        warnings.warn("Stochatistic_network_analysis_phase2() in percolation_optimized_parallel.py " +
-                      "runs with special setting {}, {}".format(special_setting,extension))
+    try:
+        #special_setting = 'giant_component' #'depth_threshold', 'giant_component'
+        #depth_threshold = 0. #depth threshold in m.
+        if special_setting is not None:
+            extension = ""
+            if special_setting == 'depth_threshold':
+                extension = extension + "Threshold: " + str(depth_threshold) + " m"
+            warnings.warn("Stochatistic_network_analysis_phase2() in percolation_optimized_parallel.py " +
+                          "runs with special setting {}, {}".format(special_setting,extension))
+
+        output_folder = config['paths']['main_output']
+
+        # SKIP IF NR of COMBINATIONS OF AOI IS ALREADY FINISHED BY CHECKING IF OUTPUT FILE IS ALREADY CREATED
+        #result_path = os.path.join(output_folder.format(country_name), 'finished', str(nr_comb))
+        result_path = output_folder / country_name / 'finished' / str(nr_comb)
+
+        if not os.path.exists(result_path):
+            os.makedirs(result_path)
+
+        if special_setting == 'giant_component':
+            result_gc_path = output_folder / country_name / 'finished_gc' / str(nr_comb)
+            if not result_gc_path.exists():
+                result_gc_path.mkdir(parents=True, exist_ok=True)
+
+        if os.path.exists(os.path.join(result_path,str(i) + '.csv')):
+            print('nr_comb = {}, experiment = {} already finished!'.format(nr_comb,i))
+            return None
 
 
-    output_folder = config['paths']['main_output']
 
-    # SKIP IF NR of COMBINATIONS OF AOI IS ALREADY FINISHED BY CHECKING IF OUTPUT FILE IS ALREADY CREATED
-    #result_path = os.path.join(output_folder.format(country_name), 'finished', str(nr_comb))
-    result_path = output_folder / country_name / 'finished' / str(nr_comb)
-
-    if not os.path.exists(result_path):
-        os.makedirs(result_path)
-
-    if special_setting == 'giant_component':
-        result_gc_path = output_folder / country_name / 'finished_gc' / str(nr_comb)
-        if not result_gc_path.exists():
-            result_gc_path.mkdir(parents=True, exist_ok=True)
-
-    if os.path.exists(os.path.join(result_path,str(i) + '.csv')):
-        print('nr_comb = {}, experiment = {} already finished!'.format(nr_comb,i))
-        return None
-
-
-    else:
-        # do the calculations
-        # Import graph and OD matrix of optimal routes
-        G = import_graph(country_code3, nuts_class=nutsClass,config_file=config_file)
-        od_optimal_routes = import_optimal_routes(country_name,config_file=config_file)
-
-        # initiate variables
-        df = pd.DataFrame(columns=['AoI combinations', 'disrupted', 'avg extra time', 'AoI removed', 'no detour'])
-        tot_routes = len(od_optimal_routes.index)
-
-        start = time.time()
-
-        # remove the edges per flood event (Area of Influence)
-        if nr_comb == 1:
-            to_remove = G.es.select(lambda e: aoi in e.attributes()[AoI_name])
         else:
-            to_remove = G.es.select(lambda e: set(aoi) & set(e.attributes()[AoI_name]))
+            # do the calculations
+            check_number_edges = len(G.es)
+            check_number_nodes = len(G.vs)
+            print('Worker before percolation: Nr edges/vertices in graph', check_number_edges, ' | ',
+                  check_number_nodes)
 
-        #Iterate over edges that are planned to be removed based on their AoI info, to do further filtering
-        if special_setting == 'depth_threshold':
-            #only remove edges that are inundated above a certain threshold
-            to_remove = [edge for edge in to_remove if edge['RP100_max_flood_depth'] >= depth_threshold]
+            # Import graph and OD matrix of optimal routes
+            #G = import_graph(country_code3, nuts_class=nutsClass,config_file=config_file)
+            od_optimal_routes = import_optimal_routes(country_name,config_file=config_file)
 
-        if special_setting == 'giant_component':
-            # Calculate reference metrics for undisturbed graph, only in the first iteration
-            file = result_gc_path.parents[0] / 'reference.csv'
-            if not file.exists():
-                print('calculating refence metrics for giant component analysis, saving to {}'.format(file))
-                edges_in_graph, nodes_in_graph, edges_in_giant, nodes_in_giant = giant_component_analysis(G,mode='strong')
-                d = {'ref_edges_in_graph' : edges_in_graph,
-                     'ref_nodes_in_graph' : nodes_in_graph,
-                     'ref_edges_in_giant' : edges_in_giant,
-                     'ref_nodes_in_giant' : nodes_in_giant}
-                result = pd.DataFrame(pd.Series(data=d,name='undisturbed graph')).T
-                result.to_csv(file,sep=';')
+            # initiate variables
+            df = pd.DataFrame(columns=['AoI combinations', 'disrupted', 'avg extra time', 'AoI removed', 'no detour'])
+            tot_routes = len(od_optimal_routes.index)
 
-        G.delete_edges(to_remove)
 
-        extra_time = []
-        disrupted = 0
-        nr_no_detour = 0
-        for ii in range(len(od_optimal_routes.index)):
-            o, d = od_optimal_routes.iloc[ii][['o_node', 'd_node']]
 
-            # calculate the (alternative) distance between two nodes
-            # now the graph is treated as directed, make mode=ig.ALL to treat as undirected
-            ### Todo: this can be optimized. You only need to recalculate routes which are disrupted!!!!
-            ### i.e. only calculate route if any edge in the route between OD-pair is in to_remove
-            ### todo: it would be good to save the names of the OD-pairs that are disrupted
-            alt_route = G.shortest_paths_dijkstra(source=int(o), target=int(d), mode=ig.OUT, weights=weighing)
-            #G.get_shortest_paths(v=int(o), to=int(d), mode=ig.OUT, weights=weighing,output='vpath')
-            alt_route = alt_route[0][0]
-            if alt_route != np.inf:
-                # alt_route = inf if the route is not available
-                # append to list of alternative routes to get the average
-                extra_time.append(alt_route - od_optimal_routes.iloc[ii][weighing]) #changed 'time' into weighing
-                if od_optimal_routes.iloc[ii][weighing] != alt_route: #changed 'time' into weighing
-                    # the alternative route is different from the preferred route
-                    disrupted += 1
+            # remove the edges per flood event (Area of Influence)
+            if nr_comb == 1:
+                to_remove = G.es.select(lambda e: aoi in e.attributes()[AoI_name])
             else:
-                # append to calculation dataframe
-                disrupted += 1
-                nr_no_detour += 1
+                to_remove = G.es.select(lambda e: set(aoi) & set(e.attributes()[AoI_name]))
 
-        output = {'AoI combinations': nr_comb,
-                          'disrupted': disrupted / tot_routes * 100,
-                          'avg extra time': mean(extra_time),
-                          'AoI removed': aoi,
-                          'no detour': nr_no_detour / tot_routes * 100}
-        df = df.append(output, ignore_index=True)
-        df.to_csv(os.path.join(result_path, str(i) + '.csv'),sep=';')
+            #Iterate over edges that are planned to be removed based on their AoI info, to do further filtering
+            if special_setting == 'depth_threshold':
+                #only remove edges that are inundated above a certain threshold
+                to_remove = [edge for edge in to_remove if edge['RP100_max_flood_depth'] >= depth_threshold]
 
-        if special_setting == 'giant_component':
-            # Calculate the metrics for the Giant Component analysis
-            edges_in_graph, nodes_in_graph, edges_in_giant, nodes_in_giant = giant_component_analysis(G,
-                                                        mode='strong')
-            d = {'edges_in_graph': edges_in_graph,
-                 'nodes_in_graph': nodes_in_graph,
-                 'edges_in_giant': edges_in_giant,
-                 'nodes_in_giant': nodes_in_giant}
-            output.update(d)
-            df_gc_output = pd.DataFrame(pd.Series(output)).T
-            df_gc_output.to_csv((result_gc_path / (str(i) + '.csv')),sep=';')
+            if special_setting == 'giant_component':
+                # Calculate reference metrics for undisturbed graph, only in the first iteration
+                file = result_gc_path.parents[0] / 'reference.csv'
+                if not file.exists():
+                    print('calculating refence metrics for giant component analysis, saving to {}'.format(file))
+                    edges_in_graph, nodes_in_graph, edges_in_giant, nodes_in_giant = giant_component_analysis(G,mode='strong')
+                    d = {'ref_edges_in_graph' : edges_in_graph,
+                         'ref_nodes_in_graph' : nodes_in_graph,
+                         'ref_edges_in_giant' : edges_in_giant,
+                         'ref_nodes_in_giant' : nodes_in_giant}
+                    result = pd.DataFrame(pd.Series(data=d,name='undisturbed graph')).T
+                    result.to_csv(file,sep=';')
+
+            G.delete_edges(to_remove)
+
+            extra_time = []
+            disrupted = 0
+            nr_no_detour = 0
+            for ii in range(len(od_optimal_routes.index)):
+                o, d = od_optimal_routes.iloc[ii][['o_node', 'd_node']]
+
+                # calculate the (alternative) distance between two nodes
+                # now the graph is treated as directed, make mode=ig.ALL to treat as undirected
+                ### Todo: this can be optimized. You only need to recalculate routes which are disrupted!!!!
+                ### i.e. only calculate route if any edge in the route between OD-pair is in to_remove
+                ### todo: it would be good to save the names of the OD-pairs that are disrupted
+                alt_route = G.shortest_paths_dijkstra(source=int(o), target=int(d), mode=ig.OUT, weights=weighing)
+                #G.get_shortest_paths(v=int(o), to=int(d), mode=ig.OUT, weights=weighing,output='vpath')
+                alt_route = alt_route[0][0]
+                if alt_route != np.inf:
+                    # alt_route = inf if the route is not available
+                    # append to list of alternative routes to get the average
+                    extra_time.append(alt_route - od_optimal_routes.iloc[ii][weighing]) #changed 'time' into weighing
+                    if od_optimal_routes.iloc[ii][weighing] != alt_route: #changed 'time' into weighing
+                        # the alternative route is different from the preferred route
+                        disrupted += 1
+                else:
+                    # append to calculation dataframe
+                    disrupted += 1
+                    nr_no_detour += 1
+
+            if not extra_time: #if no extra time (list empty)
+                avg_extra_time = 0
+            else: #calculate the mean over teh routes with detour
+                avg_extra_time = mean(extra_time)
+
+            output = {'AoI combinations': nr_comb,
+                              'disrupted': disrupted / tot_routes * 100,
+                              'avg extra time': avg_extra_time,
+                              'AoI removed': aoi,
+                              'no detour': nr_no_detour / tot_routes * 100}
+            df = df.append(output, ignore_index=True)
+            df.to_csv(os.path.join(result_path, str(i) + '.csv'),sep=';')
+
+            if special_setting == 'giant_component':
+                # Calculate the metrics for the Giant Component analysis
+                edges_in_graph, nodes_in_graph, edges_in_giant, nodes_in_giant = giant_component_analysis(G,
+                                                            mode='strong')
+                d = {'edges_in_graph': edges_in_graph,
+                     'nodes_in_graph': nodes_in_graph,
+                     'edges_in_giant': edges_in_giant,
+                     'nodes_in_giant': nodes_in_giant}
+                output.update(d)
+                df_gc_output = pd.DataFrame(pd.Series(output)).T
+                df_gc_output.to_csv((result_gc_path / (str(i) + '.csv')),sep=';')
 
 
 
-    end = time.time()
-    print('Finished percolation subprocess. Nr combinations: {}, Experiment nr: {}, time elapsed: {}'.format(nr_comb, i, end - start))
+        end = time.time()
 
+        check_number_edges = len(G.es)
+        check_number_nodes = len(G.vs)
+        print('Worker after percolation: Nr edges/vertices in graph', check_number_edges, ' | ', check_number_nodes)
+
+        print('Finished percolation subprocess. Nr combinations: {}, Experiment nr: {}, time elapsed: {}'.format(nr_comb, i, end - start))
+
+    except Exception as Argument:
+        #only save log if exceptions arise
+        logger_filename = config['paths']['logs'] / 'log_{}_{}_{}_{}_{}.log'.format(
+                    country_name, nutsClass, 'pool_phase2',nr_comb,i,)
+
+        fileHandler = logging.FileHandler(logger_filename)
+        logFormatter = logging.Formatter(
+            "%(asctime)s [%(threadName)-12.12s] [%(funcName)20s()] [%(levelname)-5.5s]  %(message)s")
+        fileHandler.setFormatter(logFormatter)
+        logger.addHandler(fileHandler)
+
+        logger.exception(str(Argument))
 
 def giant_component_analysis(G,mode='strong'):
     """
