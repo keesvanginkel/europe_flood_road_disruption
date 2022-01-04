@@ -18,3 +18,4 @@ old_scripts/*
 scripts/*.ipynb
 scripts/*.sh
 scripts/prepare_guided_sampling
+logs/
