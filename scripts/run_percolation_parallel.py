@@ -4,6 +4,10 @@ import os, sys
 from random import shuffle
 import pickle
 import json
+from pathlib import Path
+
+import time
+import logging
 
 #Todo: fix this by giving package the appropriate name
 #sys.path.append(r"P:\osm_flood\network_analysis\igraph\europe_flood_road_disruption\scripts")
@@ -121,11 +125,40 @@ class RunPercolation:
 
         # shuffle(cntries_todo)
         for ctr in cntries_todo:
-            print('Starting run_par() for countries {}'.format(ctr))
+            print('Starting run_par() for country {}'.format(ctr))
+
+
+            # read folder structure created with prep_par()
+            outputFolder = Path(self.output_folder.format(ctr)) / 'scheduled'
+            if not outputFolder.exists():
+                raise FileNotFoundError(
+                    'outputFolder {} does not exist, did you forget to run prep_par?'.format(outputFolder))
 
             # find all the folders, containing the scheduled combinations
-            folders = os.listdir(
-                os.path.join(self.output_folder.format(ctr), 'scheduled'))  # folder correspond to items of the combs_list defined before
+            folders = [x for x in outputFolder.iterdir() if x.is_dir()]  # folders correspond to items of the combs_list
+
+            # read one example tuple to figure out the desired nutsclass
+            example_pickle = [p for p in folders[0].iterdir() if p.suffix == '.pkl'][0]
+            with open(example_pickle, 'rb') as f:
+                example_pickle = pickle.load(f)
+            nutsClass = example_pickle[5]
+            assert nutsClass in ['nuts2','nuts3'] #check if a valid value is drawn from the pickle
+
+            # INSTANTIATE LOGGING FUNCTIONALITY
+            logger_filename = 'log_{}_{}_{}_{}.log'.format(ctr,nutsClass,Path(__file__).stem,'run_par')
+            rootLogger = make_rootLogger(logger_filename)
+
+            # optimisation (version > 1.0): load graph at this stage, and give it to workers
+            country_code3 = country_code_from_name(ctr,l3=True)
+
+            #todo: still loading the old, depreciated version of the graph (issue #nodes)
+            G = import_graph(country_code3, nuts_class=nutsClass, config_file=config_file)
+            #Check if all the workers have the correct number of edges and nodes in the original graph
+            #Todo built this check
+            #Todo: neatly take notes of all the values here
+            check_n_es = len(G.es)
+            check_n_vs = len(G.vs)
+            rootLogger.info('Reference nr edges|vertices original graph: {} | {}'.format(check_n_es,check_n_vs))
 
             todo = []  # list of all tuples (combination, i(experiment ID), country name, country code (3 letters))
             for comb in folders:
@@ -135,29 +168,47 @@ class RunPercolation:
 
                     schedule_file = os.path.join(self.output_folder.format(ctr), 'scheduled', comb, pkl.split('.')[0] + '.pkl')
                     with open(schedule_file, 'rb') as f:
+                        #Todo: add as much as possible the original data to the prep_par
+                        #Todo: verify if prep_par and run_par have exactly the same settings
                         inTuple = pickle.load(f) #load the original instruction from prep_par
-                        outTuple = tuple([self.config] + list(inTuple) + [self.special_setting])
+                        outTuple = tuple([self.config] + list(inTuple) + [self.special_setting] + [G])
                         todo.append(outTuple)
 
             shuffle(todo)
-            print(todo[0:10])  # just to check if we indeed shuffled
-            print("In total we will do {} mini-processes".format(len(todo)))
+            rootLogger.info('In total we will do {} mini-processes.'.format(len(todo)))
 
             # Carry out the scheduled experiments
-            print('Run_par() starting scheduled experiments for {}'.format(ctr))
-            #with Pool(int(nr_cores)) as pool:
-                #pool.map(stochastic_network_analysis_phase2, todo, chunksize=1)
-            stochastic_network_analysis_phase2(todo[0]) #useful for bugfixing
-            print('Percolation analysis finished for:', ctr)
+            rootLogger.info('Starting pools for {}, with {} cores'.format(ctr,nr_cores))
+            with Pool(int(nr_cores)) as pool:
+                pool.map(stochastic_network_analysis_phase2, todo, chunksize=1)
+            #stochastic_network_analysis_phase2(todo[0]) #useful for bugfixing
+            rootLogger.info('Percolation analysis finished for: {}'.format(ctr))
 
 
+def make_rootLogger(filename):
+    """
+    Returns root logger object, for a specific county
 
+    """
+    logFormatter = logging.Formatter(
+        "%(asctime)s [%(threadName)-12.12s] [%(funcName)20s()] [%(levelname)-5.5s]  %(message)s")
+    rootLogger = logging.getLogger(__name__)
+    rootLogger.setLevel(logging.DEBUG)
+    fileHandler = logging.FileHandler(filename)
+    fileHandler.setFormatter(logFormatter)
+    rootLogger.addHandler(fileHandler)
 
+    consoleHandler = logging.StreamHandler()
+    consoleHandler.setFormatter(logFormatter)
+    rootLogger.addHandler(consoleHandler)
+
+    rootLogger.info('Logger is created')
+    return rootLogger
 
 if __name__ == '__main__':
     #RUN THIS FOR REGULAR ANALYSIS AND UNCERTAINTY ANALYSIS
     #countries_ = N0_to_3L(['LT','LV','DK','MK','SI']) #Provide list of 3l-codes
-    countries_ = [N0_to_3L('HU')]
+    countries_ = [N0_to_3L('LV')]
     nuts_level = 'nuts3'
     reps_ = 200 #Repetitions per #AoIs
     constrain_reps_ = 10 #Schedule all, but only run these first.
@@ -182,7 +233,7 @@ if __name__ == '__main__':
                              output_folder=outputFolder,config=config_file,special_setting=None)
 
     #running.prep_par()
-    running.run_par(nr_cores=7)
+    running.run_par(nr_cores=20)
 
     # if sys.argv[1] == 'prep_par':
     #     running.prep_par()
