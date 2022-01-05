@@ -207,14 +207,15 @@ def stochastic_network_analysis_phase1_event_sampling(config_file,country_code3,
     with open(filename, 'wb') as f:
         pickle.dump((nr_comb, aoi, i, current_country, country_code3, nuts_class), f)
 
-def make_pool_logger_phase2():
+def make_pool_logger_phase2(nr_comb,i):
     """
     Create a logger for phase 2, that works with parallel processing.
 
     """
+    #todo: add aoi and nr in log name
     logFormatter = logging.Formatter(
         "%(asctime)s [%(threadName)-12.12s] [%(funcName)20s()] [%(levelname)-5.5s]  %(message)s")
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger("{}-{}-{}".format(__name__,str(nr_comb),str(i)))
     logger.setLevel(logging.DEBUG)
 
     consoleHandler = logging.StreamHandler()
@@ -244,25 +245,29 @@ def stochastic_network_analysis_phase2(tup):
                         'depth_threshold'   : impose water depth threshold on the removal of edges
                     Other special settings are already imposed in the preprocessing step
                 G (igraph Graph object)     : the undisturbed network graph
+                check_es                : number of edges in the undisturbed graph (used as checksum)
     Returns: None
 
     Effect:
         Write results of the percolation analysis to the 'main_output/*name*/finished' path set in the config file
+
+    Known issues: when calling the function iteratively, sometimes the manipulations are not done on the original graph,
+    but on the output of the previous function call. Therefore, there is a check on the number of edges
     """
-    # INSTANTIATE LOGGING FUNCTIONALITY
-    logger = make_pool_logger_phase2()
-    #logger.info('We are now logging phase 2 within the pool')
 
     start = time.time()
 
     #todo: check if Graph Object indeed has the right number of edges and nodes
 
     #update version > 1.0
-    assert len(tup) == 9
+    assert len(tup) == 10
 
     # unpack tuple
-    config_file, nr_comb, aoi, i, country_name, country_code3, nutsClass, special_setting, G = \
-        tup[0], tup[1], tup[2], tup[3], tup[4], tup[5], tup[6], tup[7], tup[8]
+    config_file, nr_comb, aoi, i, country_name, country_code3, nutsClass, special_setting, G, check_es = \
+        tup[0], tup[1], tup[2], tup[3], tup[4], tup[5], tup[6], tup[7], tup[8], tup[9]
+
+    # INSTANTIATE LOGGING FUNCTIONALITY
+    logger = make_pool_logger_phase2(nr_comb,i)
 
     config = load_config(file=config_file)
 
@@ -291,21 +296,28 @@ def stochastic_network_analysis_phase2(tup):
                 result_gc_path.mkdir(parents=True, exist_ok=True)
 
         if os.path.exists(os.path.join(result_path,str(i) + '.csv')):
-            print('nr_comb = {}, experiment = {} already finished!'.format(nr_comb,i))
+            logger.info('nr_comb = {}, experiment = {} already finished!'.format(nr_comb,i))
             return None
 
 
-
+        #only do the calculations if all above checks are met
         else:
-            # do the calculations
-            check_number_edges = len(G.es)
-            check_number_nodes = len(G.vs)
-            print('Worker before percolation: Nr edges/vertices in graph', check_number_edges, ' | ',
-                  check_number_nodes)
+            check_n_es = len(G.es)
+            check_n_vs = len(G.vs)
+            logger.info('Worker before percolation: nr edges|vertices original graph: {} | {}'.format(check_n_es, check_n_vs))
 
+            if not check_n_es == check_es:
+                raise Exception("""The number of edges of the input graph: {} does not match with the original graph: {}.
+                                This might be due to iteratively calling this function.""".format(check_n_es,check_n_vs))
+
+            t1 = time.time()
+            logger.info('t0-t1: {} sec passed after edge check'.format(t1-start))
             # Import graph and OD matrix of optimal routes
             #G = import_graph(country_code3, nuts_class=nutsClass,config_file=config_file)
             od_optimal_routes = import_optimal_routes(country_name,config_file=config_file)
+
+            t2 = time.time()
+            logger.info('t1-t2: {} sec passed after importing optimal routes check'.format(t2 - t1))
 
             # initiate variables
             df = pd.DataFrame(columns=['AoI combinations', 'disrupted', 'avg extra time', 'AoI removed', 'no detour'])
@@ -319,6 +331,9 @@ def stochastic_network_analysis_phase2(tup):
             else:
                 to_remove = G.es.select(lambda e: set(aoi) & set(e.attributes()[AoI_name]))
 
+            t3 = time.time()
+            logger.info('t2-t3: {} sec passed for selection to removed edges'.format(t3 - t2))
+
             #Iterate over edges that are planned to be removed based on their AoI info, to do further filtering
             if special_setting == 'depth_threshold':
                 #only remove edges that are inundated above a certain threshold
@@ -328,7 +343,7 @@ def stochastic_network_analysis_phase2(tup):
                 # Calculate reference metrics for undisturbed graph, only in the first iteration
                 file = result_gc_path.parents[0] / 'reference.csv'
                 if not file.exists():
-                    print('calculating refence metrics for giant component analysis, saving to {}'.format(file))
+                    logger.info('calculating refence metrics for giant component analysis, saving to {}'.format(file))
                     edges_in_graph, nodes_in_graph, edges_in_giant, nodes_in_giant = giant_component_analysis(G,mode='strong')
                     d = {'ref_edges_in_graph' : edges_in_graph,
                          'ref_nodes_in_graph' : nodes_in_graph,
@@ -338,6 +353,9 @@ def stochastic_network_analysis_phase2(tup):
                     result.to_csv(file,sep=';')
 
             G.delete_edges(to_remove)
+
+            t4 = time.time()
+            logger.info('t3-t4: {} sec passed after deleting edges'.format(t4 - t3))
 
             extra_time = []
             disrupted = 0
@@ -364,6 +382,10 @@ def stochastic_network_analysis_phase2(tup):
                     # append to calculation dataframe
                     disrupted += 1
                     nr_no_detour += 1
+
+            t5 = time.time()
+            logger.info('t4-t5: {} sec passed after calculating new routes'.format(t5 - t4))
+
 
             if not extra_time: #if no extra time (list empty)
                 avg_extra_time = 0
@@ -393,12 +415,14 @@ def stochastic_network_analysis_phase2(tup):
 
 
         end = time.time()
+        logger.info('t5-tend: {} sec passed up till saving the routes'.format(end - t5))
 
-        check_number_edges = len(G.es)
-        check_number_nodes = len(G.vs)
-        print('Worker after percolation: Nr edges/vertices in graph', check_number_edges, ' | ', check_number_nodes)
+        check_n_es = len(G.es)
+        check_n_vs = len(G.vs)
+        logger.info(
+            'Worker after percolation: nr edges|vertices percolated graph: {} | {}'.format(check_n_es, check_n_vs))
 
-        print('Finished percolation subprocess. Nr combinations: {}, Experiment nr: {}, time elapsed: {}'.format(nr_comb, i, end - start))
+        logger.info('Finished percolation subprocess. Nr combinations: {}, Experiment nr: {}, time elapsed: {}'.format(nr_comb, i, end - start))
 
     except Exception as Argument:
         #only save log if exceptions arise

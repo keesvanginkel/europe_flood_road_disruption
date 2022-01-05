@@ -145,7 +145,8 @@ class RunPercolation:
             assert nutsClass in ['nuts2','nuts3'] #check if a valid value is drawn from the pickle
 
             # INSTANTIATE LOGGING FUNCTIONALITY
-            logger_filename = 'log_{}_{}_{}_{}.log'.format(ctr,nutsClass,Path(__file__).stem,'run_par')
+            logger_filename = config['paths']['logs'] / 'log_{}_{}_{}_{}.log'.format(
+                ctr,nutsClass,Path(__file__).stem,'run_par')
             rootLogger = make_rootLogger(logger_filename)
 
             # optimisation (version > 1.0): load graph at this stage, and give it to workers
@@ -171,23 +172,33 @@ class RunPercolation:
                         #Todo: add as much as possible the original data to the prep_par
                         #Todo: verify if prep_par and run_par have exactly the same settings
                         inTuple = pickle.load(f) #load the original instruction from prep_par
-                        outTuple = tuple([self.config] + list(inTuple) + [self.special_setting] + [G])
+                        outTuple = tuple([self.config] + list(inTuple) + [self.special_setting] + [G.copy()] + [check_n_es])
                         todo.append(outTuple)
 
             shuffle(todo)
             rootLogger.info('In total we will do {} mini-processes.'.format(len(todo)))
 
             # Carry out the scheduled experiments
-            rootLogger.info('Starting pools for {}, with {} cores'.format(ctr,nr_cores))
-            with Pool(int(nr_cores)) as pool:
-                pool.map(stochastic_network_analysis_phase2, todo, chunksize=1)
+            #rootLogger.info('Starting pools for {}, with {} cores'.format(ctr,nr_cores))
+            #with Pool(int(nr_cores)) as pool:
+            #    pool.map(stochastic_network_analysis_phase2, todo, chunksize=1)
             #stochastic_network_analysis_phase2(todo[0]) #useful for bugfixing
+
+            #This syntax is likely to cause an error!
+            for i,task in enumerate(todo):
+                stochastic_network_analysis_phase2(task)
+                #print("{} / {} : {:.2f}%".format(i,len(todo),100*i/len(todo)))
+                #print(i, ' / ', len(todo), 100*i/len(todo),'%')
+
             rootLogger.info('Percolation analysis finished for: {}'.format(ctr))
 
 
 def make_rootLogger(filename):
     """
-    Returns root logger object, for a specific county
+    Returns root logger object, for a specific country
+        *filename* (Path) : the path to the desired logfile
+
+    Effect: log messages are printed to terminal; log is saved in config -> paths -> logs dir
 
     """
     logFormatter = logging.Formatter(
@@ -208,7 +219,7 @@ def make_rootLogger(filename):
 if __name__ == '__main__':
     #RUN THIS FOR REGULAR ANALYSIS AND UNCERTAINTY ANALYSIS
     #countries_ = N0_to_3L(['LT','LV','DK','MK','SI']) #Provide list of 3l-codes
-    countries_ = [N0_to_3L('LV')]
+    countries_ = [N0_to_3L('HU')]
     nuts_level = 'nuts3'
     reps_ = 200 #Repetitions per #AoIs
     constrain_reps_ = 10 #Schedule all, but only run these first.
@@ -233,7 +244,7 @@ if __name__ == '__main__':
                              output_folder=outputFolder,config=config_file,special_setting=None)
 
     #running.prep_par()
-    running.run_par(nr_cores=20)
+    running.run_par(nr_cores=6)
 
     # if sys.argv[1] == 'prep_par':
     #     running.prep_par()
