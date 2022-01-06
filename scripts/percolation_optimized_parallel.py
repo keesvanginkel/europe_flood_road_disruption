@@ -24,6 +24,7 @@ from tqdm import tqdm
 import feather
 import pickle
 import warnings
+import json
 
 from utils import load_config
 
@@ -225,6 +226,18 @@ def make_pool_logger_phase2(nr_comb,i):
     #logger.info('Logger is created')
     return logger
 
+def common_member(a, b):
+    '''
+    Check lists for common members
+    from: https://www.geeksforgeeks.org/python-check-two-lists-least-one-element-common/
+
+    '''
+    a_set = set(a)
+    b_set = set(b)
+    if len(a_set.intersection(b_set)) > 0:
+        return(True)
+    return(False)
+
 def stochastic_network_analysis_phase2(tup):
     """
     Carry out the percolation analysis which has been scheduled in phase 1.
@@ -316,11 +329,18 @@ def stochastic_network_analysis_phase2(tup):
             #G = import_graph(country_code3, nuts_class=nutsClass,config_file=config_file)
             od_optimal_routes = import_optimal_routes(country_name,config_file=config_file)
 
+
             t2 = time.time()
             logger.info('t1-t2: {} sec passed after importing optimal routes check'.format(t2 - t1))
 
             # initiate variables
-            df = pd.DataFrame(columns=['AoI combinations', 'disrupted', 'avg extra time', 'AoI removed', 'no detour'])
+            df = pd.DataFrame(columns=['AoI combinations',
+                                       'disrupted',
+                                       'avg extra time',
+                                       'AoI removed',
+                                       'no detour',
+                                       'OD-disrupted',
+                                       'OD-no_detour'])
             tot_routes = len(od_optimal_routes.index)
 
 
@@ -330,6 +350,12 @@ def stochastic_network_analysis_phase2(tup):
                 to_remove = G.es.select(lambda e: aoi in e.attributes()[AoI_name])
             else:
                 to_remove = G.es.select(lambda e: set(aoi) & set(e.attributes()[AoI_name]))
+
+            # identify the od_optimal_routes that are affected, i.e. they have at least one edge that is to be removed
+            aff = od_optimal_routes['e_ids'].apply(lambda x: common_member(json.loads(x), to_remove.indices))
+            conc = od_optimal_routes[aff]['origin'] + '-' + od_optimal_routes[aff]['destination']
+            affected_OD_pairs = list(conc.values)
+            # Todo: save this value to the output df
 
             t3 = time.time()
             logger.info('t2-t3: {} sec passed for selection to removed edges'.format(t3 - t2))
@@ -374,8 +400,8 @@ def stochastic_network_analysis_phase2(tup):
                 if alt_route != np.inf:
                     # alt_route = inf if the route is not available
                     # append to list of alternative routes to get the average
-                    extra_time.append(alt_route - od_optimal_routes.iloc[ii][weighing]) #changed 'time' into weighing
-                    if od_optimal_routes.iloc[ii][weighing] != alt_route: #changed 'time' into weighing
+                    extra_time.append(alt_route - od_optimal_routes.iloc[ii][weighing])
+                    if od_optimal_routes.iloc[ii][weighing] != alt_route:
                         # the alternative route is different from the preferred route
                         disrupted += 1
                 else:
