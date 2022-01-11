@@ -8,6 +8,7 @@ from pathlib import Path
 
 import time
 import logging
+import random
 
 #Todo: fix this by giving package the appropriate name
 #sys.path.append(r"P:\osm_flood\network_analysis\igraph\europe_flood_road_disruption\scripts")
@@ -118,7 +119,7 @@ class RunPercolation:
 
 
 
-    def run_par(self, nr_cores):
+    def run_par(self, nr_cores,run_mode_):
         # do the parallel processing
         cntries_todo = self.countries
         cntries_todo = [self.cntry_setup.loc[self.cntry_setup['code3'] == x, 'country'].iloc[0].lower() for x in cntries_todo]
@@ -143,6 +144,7 @@ class RunPercolation:
                 example_pickle = pickle.load(f)
             nutsClass = example_pickle[5]
             assert nutsClass in ['nuts2','nuts3'] #check if a valid value is drawn from the pickle
+            #todo: check that this corresponds with the other settings given
 
             # INSTANTIATE LOGGING FUNCTIONALITY
             logger_filename = config['paths']['logs'] / 'log_{}_{}_{}_{}.log'.format(
@@ -161,36 +163,80 @@ class RunPercolation:
             check_n_vs = len(G.vs)
             rootLogger.info('Reference nr edges|vertices original graph: {} | {}'.format(check_n_es,check_n_vs))
 
-            todo = []  # list of all tuples (combination, i(experiment ID), country name, country code (3 letters))
-            for comb in folders:
-                pkls = os.listdir(os.path.join(self.output_folder.format(ctr), 'scheduled', comb))  # list of pickles in each folder
+            if run_mode_[0] == 'single' and run_mode_[1] == 'random':
+                #"""Run a random experiment for each selected country"""
+                rootLogger.info('Running a random experiment for {}'.format(ctr))
+                for comb in folders:
+                    pkls = os.listdir(os.path.join(self.output_folder.format(ctr), 'scheduled',
+                                                   comb))  # list of pickles in each folder
 
-                for pkl in pkls: #pkls[:constrain_reps_]  # If lower than scheduled, limit to pkls[:200] 200 iterations for now
-
-                    schedule_file = os.path.join(self.output_folder.format(ctr), 'scheduled', comb, pkl.split('.')[0] + '.pkl')
+                    pkl = random.choice(pkls)
+                    schedule_file = os.path.join(self.output_folder.format(ctr), 'scheduled', comb,
+                                                 pkl.split('.')[0] + '.pkl')
                     with open(schedule_file, 'rb') as f:
-                        #Todo: add as much as possible the original data to the prep_par
-                        #Todo: verify if prep_par and run_par have exactly the same settings
-                        inTuple = pickle.load(f) #load the original instruction from prep_par
-                        outTuple = tuple([self.config] + list(inTuple) + [self.special_setting] + [G.copy()] + [check_n_es])
+                        inTuple = pickle.load(f)  # load the original instruction from prep_par
+                    outTuple = tuple(
+                        [self.config] + list(inTuple) + [self.special_setting] + [G] + [check_n_es])
+
+                    t10 = time.time()
+                    stochastic_network_analysis_phase2(outTuple)  # useful for bugfixing
+                    t11 = time.time()
+                    rootLogger.info('one experiment for {} costed {} s'.format(ctr, t11 - t10))
+                return None
+
+            elif run_mode_[0] == 'single' and run_mode_[1] != 'random':
+                if not len(run_mode_) == 3:
+                    raise ValueError("Expection tuple length 3 ('single',nr_comb,i)")
+                rootLogger.info('Running one selected experiment {}'.format(ctr))
+                search_nr_comb = run_mode_[1]
+                search_i = run_mode_[2]
+                rootLogger.info('Start searching for experiment {} {}'.format(search_nr_comb,search_i))
+                folder = [f for f in folders if int(f.stem) == search_nr_comb][0]
+                pkl = [pkl for pkl in folder.iterdir() if int(pkl.stem) == search_i][0]
+                with open(pkl, 'rb') as f:
+                    inTuple = pickle.load(f)
+                outTuple = tuple(
+                        [self.config] + list(inTuple) + [self.special_setting] + [G] + [check_n_es])
+                t10 = time.time()
+                stochastic_network_analysis_phase2(outTuple)  # useful for bugfixing
+                t11 = time.time()
+                rootLogger.info('one experiment for {} costed {} s'.format(ctr, t11 - t10))
+
+            #todo: reps constraint
+            elif run_mode_[0] == 'linear':
+                rootLogger.info('Start looping over {}'.format(ctr))
+                for comb in folders:
+                    pkls = [pkl for pkl in comb.iterdir() if pkl.suffix == '.pkl']
+                    for pkl in pkls:
+                        with open(pkl, 'rb') as f:
+                            inTuple = pickle.load(f)
+                        outTuple = tuple(
+                            [self.config] + list(inTuple) + [self.special_setting] + [G.copy()] + [check_n_es])
+                        stochastic_network_analysis_phase2(outTuple)
+                rootLogger.info('Percolation analysis finished for: {}'.format(ctr))
+
+            elif run_mode_[0] == 'parallel':
+                rootLogger.info('Start parallel processing of {}, by preparing scheduled experiments'.format(ctr))
+                todo = [] # list of all tuples (combination, i(experiment ID), country name, country code (3 letters))
+                for comb in folders:
+                    pkls = [pkl for pkl in comb.iterdir() if pkl.suffix == '.pkl']
+                    for pkl in pkls:
+                        with open(pkl, 'rb') as f:
+                            inTuple = pickle.load(f)
+                        outTuple = tuple(
+                            [self.config] + list(inTuple) + [self.special_setting] + [G] + [check_n_es])
                         todo.append(outTuple)
+                rootLogger.info('In total we will do {} mini-processes.'.format(len(todo)))
 
-            shuffle(todo)
-            rootLogger.info('In total we will do {} mini-processes.'.format(len(todo)))
+                #Carry out the scheduled experiments
+                rootLogger.info('Starting pools for {}, with {} cores'.format(ctr,nr_cores))
+                shuffle(todo)
+                with Pool(int(nr_cores)) as pool:
+                    pool.map(stochastic_network_analysis_phase2, todo, chunksize=1)
 
-            # Carry out the scheduled experiments
-            #rootLogger.info('Starting pools for {}, with {} cores'.format(ctr,nr_cores))
-            #with Pool(int(nr_cores)) as pool:
-            #    pool.map(stochastic_network_analysis_phase2, todo, chunksize=1)
-            #stochastic_network_analysis_phase2(todo[0]) #useful for bugfixing
+                rootLogger.info('Percolation analysis finished for: {}'.format(ctr))
 
-            #This syntax is likely to cause an error!
-            for i,task in enumerate(todo):
-                stochastic_network_analysis_phase2(task)
-                #print("{} / {} : {:.2f}%".format(i,len(todo),100*i/len(todo)))
-                #print(i, ' / ', len(todo), 100*i/len(todo),'%')
 
-            rootLogger.info('Percolation analysis finished for: {}'.format(ctr))
 
 
 def make_rootLogger(filename):
@@ -222,7 +268,14 @@ if __name__ == '__main__':
     countries_ = [N0_to_3L('HU')]
     nuts_level = 'nuts3'
     reps_ = 200 #Repetitions per #AoIs
-    constrain_reps_ = 10 #Schedule all, but only run these first.
+    constrain_reps_ = 20 #Schedule all, but only run these first.
+    #run_mode_ = ('single','random')
+    #run_mode_ = ('single',30,64)
+    #run_mode_ = ('linear',)
+    run_mode_ = ('parallel',)
+    #'single' - 'nr_comb', 'aoi','or random'
+    #'linear'
+    #'parallel'
 
     #Read the set-up per country
     config_file = 'config.json'
@@ -244,7 +297,7 @@ if __name__ == '__main__':
                              output_folder=outputFolder,config=config_file,special_setting=None)
 
     #running.prep_par()
-    running.run_par(nr_cores=6)
+    running.run_par(nr_cores=4,run_mode_=run_mode_)
 
     # if sys.argv[1] == 'prep_par':
     #     running.prep_par()
