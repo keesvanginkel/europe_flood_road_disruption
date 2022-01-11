@@ -272,6 +272,7 @@ def stochastic_network_analysis_phase2(tup):
 
     start = time.time()
 
+
     #todo: check if Graph Object indeed has the right number of edges and nodes
 
     #update version > 1.0
@@ -283,6 +284,7 @@ def stochastic_network_analysis_phase2(tup):
 
     # INSTANTIATE LOGGING FUNCTIONALITY
     logger = make_pool_logger_phase2(nr_comb,i)
+    logger.info('Logging {} nr_comb = {}, experiment = {}'.format(country_code3,nr_comb, i))
 
     config = load_config(file=config_file)
 
@@ -386,6 +388,8 @@ def stochastic_network_analysis_phase2(tup):
             t4 = time.time()
             logger.info('t3-t4: {} sec passed after deleting edges'.format(t4 - t3))
 
+
+            ### FIRST APPROACH TO ROUTE CALCULATION (USED IN THE VERSION 1.0 RELEASE) ###
             # extra_time = [] #save the extra time for each route that is disrupted
             # disrupted = 0
             # nr_no_detour = 0
@@ -421,6 +425,8 @@ def stochastic_network_analysis_phase2(tup):
             t5 = time.time()
             logger.info('t4-t5: {} sec passed after calculating new routes'.format(t5 - t4))
 
+            logger.info('{} affected routes'.format(len(affected_OD_pairs)))
+
             # # Warning: we have to be very carefull with the extra time bookkeeping.
             # # If preferred route undisrupted: - add 0 to extra time list
             # # If no detour: - add nothing to extra time list
@@ -441,9 +447,7 @@ def stochastic_network_analysis_phase2(tup):
             # else:  # calculate the mean over the routes with detour
             #     avg_extra_time = mean(extra_time)
 
-
-            ### New approach to path calculation
-
+            ### SECOND APPROACH TO ROUTE CALCULATION  ###
             #Make unique OD-matrix for the affected routes
             #peculirity: will calculate routes between all affected origins AND all affected destinations
             #note that these are more routes than the unique OD-pairs that were effected; therefore we need a pivot
@@ -468,7 +472,19 @@ def stochastic_network_analysis_phase2(tup):
             new_routes['extra_time'] = new_routes['new_time'] - new_routes['time']
 
             t5b = time.time()
-            logger.info('t5-t5b: {} sec passed after calculating new routes with new algorithm'.format(t5b - t5))
+            logger.info('t5-t5b: {} sec passed after calculating new routes with new algorithm 2'.format(t5b - t5))
+            ### THIRD APPROACH TO ROUTE CALCULATION  ###
+            check_duplicates(x)
+            #so far, there seem to be no duplicates in x, so no need to handle these
+            new_routes3 = calculate_shortest_paths_speedup(G, [int(v) for v in x['o_node']], [int(v) for v in x['d_node']])
+
+            t5c = time.time()
+            logger.info('t5-t5c: {} sec passed after calculating new routes with new algorithm 3'.format(t5c - t5b))
+
+
+
+
+
 
             #New bookkeeping for new algorithm
             disrupted_new = aff.sum()
@@ -548,6 +564,48 @@ def stochastic_network_analysis_phase2(tup):
         logger.addHandler(fileHandler)
 
         logger.exception(str(Argument))
+
+def check_duplicates(OD_df):
+    """
+    Check for duplicates in OD-dataframe and raises a warning when duplicates exist
+
+    Arguments:
+        *OD_df* (DataFrame) : Mandatory columns are ['o_node'] and ['d_node'], each row is a route
+    """
+    OD = list(zip(OD_df['o_node'], OD_df['d_node']))
+    DO = list(zip(OD_df['d_node'], OD_df['o_node']))
+    if (len(OD) + len (DO)) != len(list(set(OD + DO))):
+        warnings.warn("There are duplicates in the OD route list, i.e. at least one A->B exists as B->A")
+
+
+def calculate_shortest_paths_speedup(G, o_nodes, d_nodes, weighing='time'):
+    """Fast way to calculate the shortest paths for a set of routes in a undirected graph
+    Note that list(zip(o_nodes,d_nodes)) should return the list of OD-pairs
+    #todo: unique?
+
+    Arguments:
+        *G* (igraph Graph)  : the (undirected) graph
+        *o_nodes* (list)    : list of origin vertices (ints)
+        *d_nodes* (list)    : list of destinatination vertices (ints)
+        *weighing* (string) : weighing object in the graph
+
+    Returns:
+        path_times  (list)     : length (could also be time) of the routes; len(path_times) == len(o_nodes)
+    """
+    # optional: a speedup by providing multiple destinations at the same time where possible...
+    path_times = []
+
+    for OD_pair in list(zip(o_nodes, d_nodes)):
+        paths = G.get_shortest_paths(OD_pair[0], OD_pair[1], weights=weighing,
+                                     output='epath')
+        path = paths[0]
+        if len(path) == 0:
+            path_time = np.NaN
+        else:
+            path_time = sum(G.es[path]['time'])
+        path_times.append(path_time)
+
+    return path_times
 
 def giant_component_analysis(G,mode='strong'):
     """
