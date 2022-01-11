@@ -272,7 +272,6 @@ def stochastic_network_analysis_phase2(tup):
 
     start = time.time()
 
-
     #todo: check if Graph Object indeed has the right number of edges and nodes
 
     #update version > 1.0
@@ -348,8 +347,6 @@ def stochastic_network_analysis_phase2(tup):
                                        'with_detour_extra_times'])
             tot_routes = len(od_optimal_routes.index)
 
-
-
             # remove the edges per flood event (Area of Influence)
             if nr_comb == 1:
                 to_remove = G.es.select(lambda e: aoi in e.attributes()[AoI_name])
@@ -388,17 +385,31 @@ def stochastic_network_analysis_phase2(tup):
             t4 = time.time()
             logger.info('t3-t4: {} sec passed after deleting edges'.format(t4 - t3))
 
+            x = od_optimal_routes[aff][['o_node', 'd_node']]
 
             ### FIRST APPROACH TO ROUTE CALCULATION (USED IN THE VERSION 1.0 RELEASE) ###
+            new_routes1 = calculate_shortest_paths_dijkstra(G, [int(v) for v in x['o_node']],
+                                                            [int(v) for v in x['d_node']])
+            #todo: check handling of np.inf for outcome dijkstra
+
+            t5_1 = time.time()
+            logger.info('t4-t5_1: {} sec passed after calculating new routes with Algorithm 1'.format(t5_1 - t4))
+
+
+
+
             # extra_time = [] #save the extra time for each route that is disrupted
             # disrupted = 0
             # nr_no_detour = 0
             # route_names_with_detour = []
             # route_names_no_detour = [] #
             # with_detour_extra_time = [] #keep track of the individual extra times here
-            # #for ii in range(len(od_optimal_routes.index)):
+
+
+
+
+
             # for row_index, row in od_optimal_routes[aff].iterrows():
-            #     #o, d = od_optimal_routes.iloc[ii][['o_node', 'd_node']]
             #     o, d = row[['o_node', 'd_node']]
             #
             #     # calculate the (alternative) distance between two nodes
@@ -422,8 +433,6 @@ def stochastic_network_analysis_phase2(tup):
             #         disrupted += 1
             #         nr_no_detour += 1
 
-            t5 = time.time()
-            logger.info('t4-t5: {} sec passed after calculating new routes'.format(t5 - t4))
 
             logger.info('{} affected routes'.format(len(affected_OD_pairs)))
 
@@ -448,20 +457,7 @@ def stochastic_network_analysis_phase2(tup):
             #     avg_extra_time = mean(extra_time)
 
             ### SECOND APPROACH TO ROUTE CALCULATION  ###
-            #Make unique OD-matrix for the affected routes
-            #peculirity: will calculate routes between all affected origins AND all affected destinations
-            #note that these are more routes than the unique OD-pairs that were effected; therefore we need a pivot
-            #Create pivot table of the affected routes
-            x = od_optimal_routes[aff][['o_node', 'd_node']]
-            x['values'] = True
-            bool_aff_OD_pivot = x.pivot(index='o_node',columns='d_node',values='values').fillna(value=False)
-
-            aff_origins = [int(v) for v in bool_aff_OD_pivot.index]
-            aff_destinations = [int(v) for v in bool_aff_OD_pivot.columns]
-            shortest_paths = G.shortest_paths(source=aff_origins,target=aff_destinations,weights=weighing)
-            y = pd.DataFrame(shortest_paths,index=bool_aff_OD_pivot.index,columns=bool_aff_OD_pivot.columns)
-            y_sel = y[bool_aff_OD_pivot]
-
+            y_sel = calculate_shortest_paths_matrix(G, x,weighing=weighing)
             new_routes = od_optimal_routes[aff][['o_node', 'd_node', 'origin', 'destination', 'time']]
             #d = y_sel.unstack(-1).loc[[(col, row) for col, row in zip(new_routes.d_node, new_routes.o_node)]]
             d = y_sel.unstack(-1).loc[[(row,col) for col, row in zip(new_routes.o_node, new_routes.d_node)]].reset_index()
@@ -472,7 +468,8 @@ def stochastic_network_analysis_phase2(tup):
             new_routes['extra_time'] = new_routes['new_time'] - new_routes['time']
 
             t5b = time.time()
-            logger.info('t5-t5b: {} sec passed after calculating new routes with new algorithm 2'.format(t5b - t5))
+            logger.info('t5-t5b: {} sec passed after calculating new routes with new algorithm 2'.format(t5b - t5_1))
+
             ### THIRD APPROACH TO ROUTE CALCULATION  ###
             check_duplicates(x)
             #so far, there seem to be no duplicates in x, so no need to handle these
@@ -482,11 +479,7 @@ def stochastic_network_analysis_phase2(tup):
             logger.info('t5-t5c: {} sec passed after calculating new routes with new algorithm 3'.format(t5c - t5b))
 
 
-
-
-
-
-            #New bookkeeping for new algorithm
+            #New bookkeeping for new algorithm 2
             disrupted_new = aff.sum()
             new_routes_with_detour = new_routes.loc[~np.isinf(new_routes['extra_time'])]
             nr_new_routes_with_detour = len(new_routes_with_detour)
@@ -578,6 +571,8 @@ def check_duplicates(OD_df):
         warnings.warn("There are duplicates in the OD route list, i.e. at least one A->B exists as B->A")
 
 
+
+
 def calculate_shortest_paths_speedup(G, o_nodes, d_nodes, weighing='time'):
     """Fast way to calculate the shortest paths for a set of routes in a undirected graph
     Note that list(zip(o_nodes,d_nodes)) should return the list of OD-pairs
@@ -603,6 +598,61 @@ def calculate_shortest_paths_speedup(G, o_nodes, d_nodes, weighing='time'):
             path_time = np.NaN
         else:
             path_time = sum(G.es[path]['time'])
+        path_times.append(path_time)
+
+    return path_times
+
+
+def calculate_shortest_paths_matrix(G, x, weighing='time'):
+    """Original way to calculate the shortest paths for a set of routes in a undirected graph in release 1.0
+
+    Note that list(zip(o_nodes,d_nodes)) should return the list of OD-pairs
+    #todo: unique?
+
+    Arguments:
+        *G* (igraph Graph)  : the (undirected) graph
+        *x* (DataFrame) : should contain columns x['o_node'] and x['d_node']
+        *weighing* (string) : weighing object in the graph
+
+    Returns:
+        *y_sel* (DataFrame) : matrix with the travel times
+    """
+    # Make unique OD-matrix for the affected routes
+    # peculiarity: will calculate routes between all affected origins AND all affected destinations
+    # note that these are more routes than the unique OD-pairs that were effected; therefore we need a pivot
+    # Create pivot table of the affected routes
+    x['values'] = True
+    bool_aff_OD_pivot = x.pivot(index='o_node', columns='d_node', values='values').fillna(value=False)
+
+    aff_origins = [int(v) for v in bool_aff_OD_pivot.index]
+    aff_destinations = [int(v) for v in bool_aff_OD_pivot.columns]
+    shortest_paths = G.shortest_paths(source=aff_origins, target=aff_destinations, weights=weighing)
+    y = pd.DataFrame(shortest_paths, index=bool_aff_OD_pivot.index, columns=bool_aff_OD_pivot.columns)
+    y_sel = y[bool_aff_OD_pivot]
+
+    return y_sel
+
+def calculate_shortest_paths_dijkstra(G, o_nodes, d_nodes, weighing='time'):
+    """Original way to calculate the shortest paths for a set of routes in a undirected graph in release 1.0
+
+    Note that list(zip(o_nodes,d_nodes)) should return the list of OD-pairs
+    #todo: unique?
+
+    Arguments:
+        *G* (igraph Graph)  : the (undirected) graph
+        *o_nodes* (list)    : list of origin vertices (ints)
+        *d_nodes* (list)    : list of destinatination vertices (ints)
+        *weighing* (string) : weighing object in the graph
+
+    Returns:
+        path_times  (list)     : length (could also be time) of the routes; len(path_times) == len(o_nodes)
+    """
+    # optional: a speedup by providing multiple destinations at the same time where possible...
+    path_times = []
+
+    for OD_pair in list(zip(o_nodes, d_nodes)):
+        path_time = G.shortest_paths_dijkstra(source=OD_pair[0], target=OD_pair[1], weights=weighing,
+                                              mode=ig.OUT)[0][0]
         path_times.append(path_time)
 
     return path_times
