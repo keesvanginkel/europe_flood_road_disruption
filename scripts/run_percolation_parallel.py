@@ -273,9 +273,6 @@ if __name__ == '__main__':
     #run_mode_ = ('single',30,64)
     #run_mode_ = ('linear',)
     run_mode_ = ('parallel',)
-    #'single' - 'nr_comb', 'aoi','or random'
-    #'linear'
-    #'parallel'
 
     #Read the set-up per country
     config_file = 'config.json'
@@ -306,41 +303,4 @@ if __name__ == '__main__':
     #     running.run_par(sys.argv[2])
     # else:
     #     print("wrong input, use 'prep_par' or 'run_par (nr of cores)'")
-
-if False:
-#if __name__ == '__main__':
-    from percolation_event_based import *
-
-    ### RUN THIS FOR EVENT SAMPLING ANALYSIS (version 2)
-    countries_ = ['DEU']
-    nuts_level = 'nuts2'
-    config_file = 'config_eventbased_2.json'
-    #special_setting = 'event_based' #still unused
-
-    #Some unused declarations for initializing RUNNING object
-    reps_ = None
-    outputFolder = str(config['paths']['main_output']) + r'\{}'
-
-    #Todo: do we need the below code for event-based sampling???
-    cntrySetup_path = config['paths']['data'] / '{}_combinations.csv'.format(nuts_level)
-    if not cntrySetup_path.exists():
-        raise OSError(2, 'Cannot find the file prescribing the AoI sampling:', '{}'.format(cntrySetup_path))
-    else:
-        print('Reading the AoI sampling procedure from: {}'.format(cntrySetup_path))
-    cntrySetup = pd.read_csv(cntrySetup_path, sep=';')
-
-    config = load_config(file=config_file)
-    # Run a small test to check if all the paths are well configured:
-    for key, path in config['paths'].items():
-        print(key, path, path.exists())
-
-    #Start with actual preparations
-    #note that some of these are not used
-
-
-    #Prepare experiments
-    #running.prep_par_event_sampling(nuts_class=nuts_level, sampling_json='entire_basin_sampling.json')
-
-    #Run experiments
-
 
