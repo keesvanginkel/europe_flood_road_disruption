@@ -166,25 +166,21 @@ class RunPercolation:
             if run_mode_[0] == 'single' and run_mode_[1] == 'random':
                 #"""Run a random experiment for each selected country"""
                 rootLogger.info('Running a random experiment for {}'.format(ctr))
-                for comb in folders:
-                    pkls = os.listdir(os.path.join(self.output_folder.format(ctr), 'scheduled',
-                                                   comb))  # list of pickles in each folder
+                comb = random.choice(folders)
+                pkls = [pkl for pkl in comb.iterdir()]
+                pkl = random.choice(pkls)
+                with open(pkl, 'rb') as f:
+                    inTuple = pickle.load(f)  # load the original instruction from prep_par
+                outTuple = tuple(
+                    [self.config] + list(inTuple) + [self.special_setting] + [G] + [check_n_es])
 
-                    pkl = random.choice(pkls)
-                    schedule_file = os.path.join(self.output_folder.format(ctr), 'scheduled', comb,
-                                                 pkl.split('.')[0] + '.pkl')
-                    with open(schedule_file, 'rb') as f:
-                        inTuple = pickle.load(f)  # load the original instruction from prep_par
-                    outTuple = tuple(
-                        [self.config] + list(inTuple) + [self.special_setting] + [G] + [check_n_es])
-
-                    t10 = time.time()
-                    stochastic_network_analysis_phase2(outTuple)  # useful for bugfixing
-                    t11 = time.time()
-                    rootLogger.info('one experiment for {} costed {} s'.format(ctr, t11 - t10))
+                t10 = time.time()
+                stochastic_network_analysis_phase2(outTuple)  # useful for bugfixing
+                t11 = time.time()
+                rootLogger.info('one experiment for {} costed {} s'.format(ctr, t11 - t10))
                 return None
 
-            elif run_mode_[0] == 'single' and run_mode_[1] != 'random':
+            if run_mode_[0] == 'single' and run_mode_[1] != 'random':
                 if not len(run_mode_) == 3:
                     raise ValueError("Expection tuple length 3 ('single',nr_comb,i)")
                 rootLogger.info('Running one selected experiment {}'.format(ctr))
@@ -203,7 +199,7 @@ class RunPercolation:
                 rootLogger.info('one experiment for {} costed {} s'.format(ctr, t11 - t10))
 
             #todo: reps constraint
-            elif run_mode_[0] == 'linear':
+            if run_mode_[0] == 'linear':
                 rootLogger.info('Start looping over {}'.format(ctr))
                 for comb in folders:
                     pkls = [pkl for pkl in comb.iterdir() if pkl.suffix == '.pkl']
@@ -215,7 +211,7 @@ class RunPercolation:
                         stochastic_network_analysis_phase2(outTuple)
                 rootLogger.info('Percolation analysis finished for: {}'.format(ctr))
 
-            elif run_mode_[0] == 'parallel':
+            if run_mode_[0] == 'parallel':
                 rootLogger.info('Start parallel processing of {}, by preparing scheduled experiments'.format(ctr))
                 todo = [] # list of all tuples (combination, i(experiment ID), country name, country code (3 letters))
                 for comb in folders:
@@ -269,10 +265,10 @@ if __name__ == '__main__':
     nuts_level = 'nuts3'
     reps_ = 200 #Repetitions per #AoIs
     constrain_reps_ = 20 #Schedule all, but only run these first.
-    #run_mode_ = ('single','random')
-    #run_mode_ = ('single',30,64)
+    run_mode_ = ('single','random')
+    #run_mode_ = ('single',30,65)
     #run_mode_ = ('linear',)
-    run_mode_ = ('parallel',)
+    #run_mode_ = ('parallel',)
 
     #Read the set-up per country
     config_file = 'config.json'
