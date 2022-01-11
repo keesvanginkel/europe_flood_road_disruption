@@ -386,73 +386,129 @@ def stochastic_network_analysis_phase2(tup):
             t4 = time.time()
             logger.info('t3-t4: {} sec passed after deleting edges'.format(t4 - t3))
 
-            extra_time = [] #save the extra time for each route that is disrupted
-            disrupted = 0
-            nr_no_detour = 0
-            route_names_with_detour = []
-            route_names_no_detour = [] #
-            with_detour_extra_time = [] #keep track of the individual extra times here
-            #for ii in range(len(od_optimal_routes.index)):
-            for row_index, row in od_optimal_routes[aff].iterrows():
-                #o, d = od_optimal_routes.iloc[ii][['o_node', 'd_node']]
-                o, d = row[['o_node', 'd_node']]
-
-                # calculate the (alternative) distance between two nodes
-                # now the graph is treated as directed, make mode=ig.ALL to treat as undirected
-                ### todo: replace with faster function that saves everything
-                alt_route = G.shortest_paths_dijkstra(source=int(o), target=int(d), mode=ig.OUT, weights=weighing)
-                #G.get_shortest_paths(v=int(o), to=int(d), mode=ig.OUT, weights=weighing,output='vpath')
-                alt_route = alt_route[0][0] #this only returns time of the new route
-                if alt_route != np.inf: #There is an alternative route
-                    # alt_route = inf if the route is not available
-                    # append to list of alternative routes to get the average
-                    #extra_time.append(alt_route - od_optimal_routes.iloc[ii][weighing])
-                    extra_time.append(alt_route - row[weighing])
-                    route_names_with_detour.append(row['origin'] + '-' + row['destination'])
-                    #if od_optimal_routes.iloc[ii][weighing] != alt_route:
-                        # the alternative route is different from the preferred route
-                    disrupted += 1 #Todo: je kunt disrupted ook buiten deze loop bepalen, het is gewoon de lengte van od..[aff]
-                else: #There is no alternative route
-                    # append to calculation dataframe
-                    route_names_no_detour.append(row['origin'] + '-' + row['destination'])
-                    disrupted += 1
-                    nr_no_detour += 1
-
-            ### New ver
-
-            #Warning: we have to be very carefull with the extra time bookkeeping.
-            #If preferred route undisrupted: - add 0 to extra time list
-            #If no detour: - add nothing to extra time list
-            #if detour: - add time differene to list
-            with_detour_extra_times = ['{:.3f}'.format(t) for t in extra_time] #prepare output string
-            extra_time.extend([0] * sum(~aff)) # to handle undisrupted routes the same as in original
+            # extra_time = [] #save the extra time for each route that is disrupted
+            # disrupted = 0
+            # nr_no_detour = 0
+            # route_names_with_detour = []
+            # route_names_no_detour = [] #
+            # with_detour_extra_time = [] #keep track of the individual extra times here
+            # #for ii in range(len(od_optimal_routes.index)):
+            # for row_index, row in od_optimal_routes[aff].iterrows():
+            #     #o, d = od_optimal_routes.iloc[ii][['o_node', 'd_node']]
+            #     o, d = row[['o_node', 'd_node']]
+            #
+            #     # calculate the (alternative) distance between two nodes
+            #     # now the graph is treated as directed, make mode=ig.ALL to treat as undirected
+            #     ### todo: replace with faster function that saves everything
+            #     alt_route = G.shortest_paths_dijkstra(source=int(o), target=int(d), mode=ig.OUT, weights=weighing)
+            #     #G.get_shortest_paths(v=int(o), to=int(d), mode=ig.OUT, weights=weighing,output='vpath')
+            #     alt_route = alt_route[0][0] #this only returns time of the new route
+            #     if alt_route != np.inf: #There is an alternative route
+            #         # alt_route = inf if the route is not available
+            #         # append to list of alternative routes to get the average
+            #         #extra_time.append(alt_route - od_optimal_routes.iloc[ii][weighing])
+            #         extra_time.append(alt_route - row[weighing])
+            #         route_names_with_detour.append(row['origin'] + '-' + row['destination'])
+            #         #if od_optimal_routes.iloc[ii][weighing] != alt_route:
+            #             # the alternative route is different from the preferred route
+            #         disrupted += 1 #Todo: je kunt disrupted ook buiten deze loop bepalen, het is gewoon de lengte van od..[aff]
+            #     else: #There is no alternative route
+            #         # append to calculation dataframe
+            #         route_names_no_detour.append(row['origin'] + '-' + row['destination'])
+            #         disrupted += 1
+            #         nr_no_detour += 1
 
             t5 = time.time()
             logger.info('t4-t5: {} sec passed after calculating new routes'.format(t5 - t4))
 
-            if len(route_names_with_detour) + len(route_names_no_detour) != len(aff[aff]):
-                raise Exception('Number of routes with detour {} \
-                                 + number of routes without detour {} \
-                                 does not match total affected routes {}'.format(
-                                    route_names_with_detour,route_names_no_detour,len(aff[aff])))
+            # # Warning: we have to be very carefull with the extra time bookkeeping.
+            # # If preferred route undisrupted: - add 0 to extra time list
+            # # If no detour: - add nothing to extra time list
+            # # if detour: - add time differene to list
+            # with_detour_extra_times = ['{:.3f}'.format(t) for t in extra_time]  # prepare output string
+            # extra_time.extend([0] * sum(~aff))  # to handle undisrupted routes the same as in original
+            #
+            # if len(route_names_with_detour) + len(route_names_no_detour) != len(aff[aff]):
+            #     raise Exception('Number of routes with detour {} \
+            #                                 + number of routes without detour {} \
+            #                                 does not match total affected routes {}'.format(
+            #         route_names_with_detour, route_names_no_detour, len(aff[aff])))
+            #
+            # assert aff.sum() == disrupted
+            #
+            # if not extra_time:  # if no extra time (list empty)
+            #     avg_extra_time = 0
+            # else:  # calculate the mean over the routes with detour
+            #     avg_extra_time = mean(extra_time)
 
-            assert aff.sum() == disrupted
 
-            if not extra_time: #if no extra time (list empty)
+            ### New approach to path calculation
+
+            #Make unique OD-matrix for the affected routes
+            #peculirity: will calculate routes between all affected origins AND all affected destinations
+            #note that these are more routes than the unique OD-pairs that were effected; therefore we need a pivot
+            #Create pivot table of the affected routes
+            x = od_optimal_routes[aff][['o_node', 'd_node']]
+            x['values'] = True
+            bool_aff_OD_pivot = x.pivot(index='o_node',columns='d_node',values='values').fillna(value=False)
+
+            aff_origins = [int(v) for v in bool_aff_OD_pivot.index]
+            aff_destinations = [int(v) for v in bool_aff_OD_pivot.columns]
+            shortest_paths = G.shortest_paths(source=aff_origins,target=aff_destinations,weights=weighing)
+            y = pd.DataFrame(shortest_paths,index=bool_aff_OD_pivot.index,columns=bool_aff_OD_pivot.columns)
+            y_sel = y[bool_aff_OD_pivot]
+
+            new_routes = od_optimal_routes[aff][['o_node', 'd_node', 'origin', 'destination', 'time']]
+            #d = y_sel.unstack(-1).loc[[(col, row) for col, row in zip(new_routes.d_node, new_routes.o_node)]]
+            d = y_sel.unstack(-1).loc[[(row,col) for col, row in zip(new_routes.o_node, new_routes.d_node)]].reset_index()
+            new_routes['new_time'] = None
+            # Make sure that the lists are not shuffled
+            assert list(zip(d.o_node, d.d_node)) == list(zip(new_routes.o_node, new_routes.d_node))
+            new_routes['new_time'] = d[0].values
+            new_routes['extra_time'] = new_routes['new_time'] - new_routes['time']
+
+            t5b = time.time()
+            logger.info('t5-t5b: {} sec passed after calculating new routes with new algorithm'.format(t5b - t5))
+
+            #New bookkeeping for new algorithm
+            disrupted_new = aff.sum()
+            new_routes_with_detour = new_routes.loc[~np.isinf(new_routes['extra_time'])]
+            nr_new_routes_with_detour = len(new_routes_with_detour)
+            route_names_with_detour_new = [row['origin'] + '-' + row['destination'] for q, row in new_routes_with_detour.iterrows()]
+            with_detour_extra_times_new = ['{:.3f}'.format(t) for t in new_routes_with_detour['extra_time']]
+
+            new_routes_no_detour = new_routes.loc[np.isinf(new_routes['extra_time'])]
+            nr_no_detour_new = len(new_routes_no_detour)
+
+            #Infs have to be replaced with 0 to do consistent reporting!
+            #new_routes['extra_time'] = new_routes['extra_time'].replace(np.inf,value=0)
+            extra_time_n = list(new_routes_with_detour['time'].values)
+            #extra_time_n.extend([0] * sum(~aff)) ### TODO check this
+
+            if not extra_time_n:  # if no extra time (list empty)
                 avg_extra_time = 0
-            else: #calculate the mean over the routes with detour
-                avg_extra_time = mean(extra_time)
+            else:  # calculate the mean over the routes with detour
+                avg_extra_time = mean(extra_time_n)
 
-            output = {'AoI combinations': nr_comb,
-                      'disrupted': disrupted / tot_routes * 100,
+            # output = {'AoI combinations': nr_comb,
+            #           'disrupted': disrupted / tot_routes * 100,
+            #           'avg extra time': avg_extra_time,
+            #           'AoI removed': aoi,
+            #           'no detour': nr_no_detour / tot_routes * 100,
+            #           'OD-disrupted' : affected_OD_pairs,
+            #           'OD-with_detour' : route_names_with_detour,
+            #           'with_detour_extra_times' : with_detour_extra_times
+            # }
+            output_new = {'AoI combinations': nr_comb,
+                      'disrupted': disrupted_new / tot_routes * 100,
                       'avg extra time': avg_extra_time,
                       'AoI removed': aoi,
-                      'no detour': nr_no_detour / tot_routes * 100,
+                      'no detour': nr_no_detour_new / tot_routes * 100,
                       'OD-disrupted' : affected_OD_pairs,
-                      'OD-with_detour' : route_names_with_detour,
-                      'with_detour_extra_times' : with_detour_extra_times
+                      'OD-with_detour' : route_names_with_detour_new,
+                      'with_detour_extra_times' : with_detour_extra_times_new
             }
-            df = df.append(output, ignore_index=True)
+            df = df.append(output_new, ignore_index=True)
             df.index = [str(i)]
             df.to_csv(os.path.join(result_path, str(i) + '.csv'),sep=';')
 
@@ -471,7 +527,7 @@ def stochastic_network_analysis_phase2(tup):
 
 
         end = time.time()
-        logger.info('t5-tend: {} sec passed up till saving the routes'.format(end - t5))
+        logger.info('t5b-tend: {} sec passed up till saving the routes'.format(end - t5b))
 
         check_n_es = len(G.es)
         check_n_vs = len(G.vs)
