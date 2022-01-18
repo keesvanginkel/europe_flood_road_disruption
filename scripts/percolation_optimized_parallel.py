@@ -245,12 +245,12 @@ def stochastic_network_analysis_phase2(tup):
     Carry out the percolation analysis which has been scheduled in phase 1.
 
     Arguments:
-        *tup* (tuple) = tuple of lenght 8, containing:
-            (config_file, nr_comb, aoi, i, country_name, country_code3, nutsClass)
+        *tup* (tuple) = tuple of length 11, containing:
+            (config_file, nr_comb, aoi, i, country_name, country_code3, nuts_level, special_setting,G,cehck_es,route_algorithm_)
                 config_file (str)            : name of the config file, to be given to load_config from utils.py
                 nr_comb (int)               : number of combinations, i.e. microfloods sampled at the same time
                 aoi (int or list of int)    : the microfloods sampled
-                i
+                i (int)                     : identifier of the experiment (corresponds to scheduled/finished filename)
                 country_name (string)       : full lowercase country name (e.g. 'belgium')
                 country_code3 (str)         : 3-letter countryname (e.g. 'BEL')
                 nuts_level (str)            : can be 'nuts3' or 'nuts2'
@@ -261,6 +261,7 @@ def stochastic_network_analysis_phase2(tup):
                     Other special settings are already imposed in the preprocessing step
                 G (igraph Graph object)     : the undisturbed network graph
                 check_es                : number of edges in the undisturbed graph (used as checksum)
+                route_algorithm (string)    : can be 'version_1' or 'version_2' or 'version_3'
     Returns: None
 
     Effect:
@@ -272,14 +273,12 @@ def stochastic_network_analysis_phase2(tup):
 
     start = time.time()
 
-    #todo: check if Graph Object indeed has the right number of edges and nodes
-
     #update version > 1.0
-    assert len(tup) == 10
+    assert len(tup) == 11
 
     # unpack tuple
-    config_file, nr_comb, aoi, i, country_name, country_code3, nutsClass, special_setting, G, check_es = \
-        tup[0], tup[1], tup[2], tup[3], tup[4], tup[5], tup[6], tup[7], tup[8], tup[9]
+    config_file, nr_comb, aoi, i, country_name, country_code3, nutsClass, special_setting, G, check_es, route_algorithm_ = \
+        tup[0], tup[1], tup[2], tup[3], tup[4], tup[5], tup[6], tup[7], tup[8], tup[9],tup[10]
 
     # INSTANTIATE LOGGING FUNCTIONALITY
     logger = make_pool_logger_phase2(nr_comb,i)
@@ -300,21 +299,22 @@ def stochastic_network_analysis_phase2(tup):
         output_folder = config['paths']['main_output']
 
         # SKIP IF NR of COMBINATIONS OF AOI IS ALREADY FINISHED BY CHECKING IF OUTPUT FILE IS ALREADY CREATED
-        #result_path = os.path.join(output_folder.format(country_name), 'finished', str(nr_comb))
         result_path = output_folder / country_name / 'finished' / str(nr_comb)
+        result_file = result_path / (str(i) + '.csv')
+        result_path.mkdir(exist_ok=True)
 
-        if not os.path.exists(result_path):
-            os.makedirs(result_path)
+
 
         if special_setting == 'giant_component':
+            #Todo: integrate this
             result_gc_path = output_folder / country_name / 'finished_gc' / str(nr_comb)
+            # noinspection PyUnreachableCode
             if not result_gc_path.exists():
                 result_gc_path.mkdir(parents=True, exist_ok=True)
 
-        if os.path.exists(os.path.join(result_path,str(i) + '.csv')):
+        if result_file.exists():
             logger.info('nr_comb = {}, experiment = {} already finished!'.format(nr_comb,i))
             return None
-
 
         #only do the calculations if all above checks are met
         else:
@@ -326,25 +326,26 @@ def stochastic_network_analysis_phase2(tup):
                 raise Exception("""The number of edges of the input graph: {} does not match with the original graph: {}.
                                 This might be due to iteratively calling this function.""".format(check_n_es,check_n_vs))
 
-            t1 = time.time()
-            logger.info('t0-t1: {} sec passed after edge check'.format(t1-start))
-            # Import graph and OD matrix of optimal routes
+                        # Import graph and OD matrix of optimal routes
             #G = import_graph(country_code3, nuts_class=nutsClass,config_file=config_file)
             od_optimal_routes = import_optimal_routes(country_name,config_file=config_file)
 
 
-            t2 = time.time()
-            logger.info('t1-t2: {} sec passed after importing optimal routes check'.format(t2 - t1))
+            t1 = time.time()
+            logger.info('start - t1: {} sec passed till importing optimal routes check'.format(t1 - start))
 
             # initiate variables
-            df = pd.DataFrame(columns=['AoI combinations',
-                                       'disrupted',
-                                       'avg extra time',
-                                       'AoI removed',
-                                       'no detour',
-                                       'OD-disrupted',
-                                       'OD-with_detour',
-                                       'with_detour_extra_times'])
+            ser = pd.Series(name=i,
+                            index=['AoI combinations',
+                                  'experiment',
+                                   'disrupted',
+                                   'avg extra time',
+                                   'AoI removed',
+                                   'no detour',
+                                   'OD-disrupted',
+                                   'OD-with_detour',
+                                   'with_detour_extra_times'],
+                            dtype=object)
             tot_routes = len(od_optimal_routes.index)
 
             # remove the edges per flood event (Area of Influence)
@@ -359,13 +360,15 @@ def stochastic_network_analysis_phase2(tup):
             affected_OD_pairs = list(conc.values)
             # Todo: save this value to the output df
 
-            t3 = time.time()
-            logger.info('t2-t3: {} sec passed for selection to removed edges'.format(t3 - t2))
+            t2 = time.time()
+            logger.info('t1-t2: {} sec passed for selection to removed edges'.format(t2 - t1))
 
             #Iterate over edges that are planned to be removed based on their AoI info, to do further filtering
             if special_setting == 'depth_threshold':
                 #only remove edges that are inundated above a certain threshold
                 to_remove = [edge for edge in to_remove if edge['RP100_max_flood_depth'] >= depth_threshold]
+
+
 
             if special_setting == 'giant_component':
                 # Calculate reference metrics for undisturbed graph, only in the first iteration
@@ -382,166 +385,125 @@ def stochastic_network_analysis_phase2(tup):
 
             G.delete_edges(to_remove)
 
-            t4 = time.time()
-            logger.info('t3-t4: {} sec passed after deleting edges'.format(t4 - t3))
+            t3 = time.time()
+            logger.info('t2-t3: {} sec passed after deleting edges'.format(t3 - t2))
 
             x = od_optimal_routes[aff][['o_node', 'd_node']]
 
             ### FIRST APPROACH TO ROUTE CALCULATION (USED IN THE VERSION 1.0 RELEASE) ###
-            new_routes1 = calculate_shortest_paths_dijkstra(G, [int(v) for v in x['o_node']],
-                                                            [int(v) for v in x['d_node']])
-            #todo: check handling of np.inf for outcome dijkstra
 
-            t5_1 = time.time()
-            logger.info('t4-t5_1: {} sec passed after calculating new routes with Algorithm 1'.format(t5_1 - t4))
-
-
-
-
-            # extra_time = [] #save the extra time for each route that is disrupted
-            # disrupted = 0
-            # nr_no_detour = 0
-            # route_names_with_detour = []
-            # route_names_no_detour = [] #
-            # with_detour_extra_time = [] #keep track of the individual extra times here
-
-
-
-
-
-            # for row_index, row in od_optimal_routes[aff].iterrows():
-            #     o, d = row[['o_node', 'd_node']]
-            #
-            #     # calculate the (alternative) distance between two nodes
-            #     # now the graph is treated as directed, make mode=ig.ALL to treat as undirected
-            #     ### todo: replace with faster function that saves everything
-            #     alt_route = G.shortest_paths_dijkstra(source=int(o), target=int(d), mode=ig.OUT, weights=weighing)
-            #     #G.get_shortest_paths(v=int(o), to=int(d), mode=ig.OUT, weights=weighing,output='vpath')
-            #     alt_route = alt_route[0][0] #this only returns time of the new route
-            #     if alt_route != np.inf: #There is an alternative route
-            #         # alt_route = inf if the route is not available
-            #         # append to list of alternative routes to get the average
-            #         #extra_time.append(alt_route - od_optimal_routes.iloc[ii][weighing])
-            #         extra_time.append(alt_route - row[weighing])
-            #         route_names_with_detour.append(row['origin'] + '-' + row['destination'])
-            #         #if od_optimal_routes.iloc[ii][weighing] != alt_route:
-            #             # the alternative route is different from the preferred route
-            #         disrupted += 1 #Todo: je kunt disrupted ook buiten deze loop bepalen, het is gewoon de lengte van od..[aff]
-            #     else: #There is no alternative route
-            #         # append to calculation dataframe
-            #         route_names_no_detour.append(row['origin'] + '-' + row['destination'])
-            #         disrupted += 1
-            #         nr_no_detour += 1
-
-
+            assert len(affected_OD_pairs) == aff.sum()
             logger.info('{} affected routes'.format(len(affected_OD_pairs)))
 
-            # # Warning: we have to be very carefull with the extra time bookkeeping.
-            # # If preferred route undisrupted: - add 0 to extra time list
-            # # If no detour: - add nothing to extra time list
-            # # if detour: - add time differene to list
-            # with_detour_extra_times = ['{:.3f}'.format(t) for t in extra_time]  # prepare output string
-            # extra_time.extend([0] * sum(~aff))  # to handle undisrupted routes the same as in original
-            #
-            # if len(route_names_with_detour) + len(route_names_no_detour) != len(aff[aff]):
-            #     raise Exception('Number of routes with detour {} \
-            #                                 + number of routes without detour {} \
-            #                                 does not match total affected routes {}'.format(
-            #         route_names_with_detour, route_names_no_detour, len(aff[aff])))
-            #
-            # assert aff.sum() == disrupted
-            #
-            # if not extra_time:  # if no extra time (list empty)
-            #     avg_extra_time = 0
-            # else:  # calculate the mean over the routes with detour
-            #     avg_extra_time = mean(extra_time)
+            if route_algorithm_ == 'version_1':
+                new_routes = calculate_shortest_paths_dijkstra(G, [int(v) for v in x['o_node']],
+                                                            [int(v) for v in x['d_node']])
 
+                old_times = od_optimal_routes[aff]['time']
+                new_times = pd.Series(index=old_times.index,data=new_routes)
+
+                ###########################################
+                t4 = time.time()
+                logger.info('t3-t4: {} sec passed for calculating new routes, used algorithm 1'.format(t4 - t3))
+
+            elif route_algorithm_ == 'version_2':
             ### SECOND APPROACH TO ROUTE CALCULATION  ###
-            y_sel = calculate_shortest_paths_matrix(G, x,weighing=weighing)
-            new_routes = od_optimal_routes[aff][['o_node', 'd_node', 'origin', 'destination', 'time']]
-            #d = y_sel.unstack(-1).loc[[(col, row) for col, row in zip(new_routes.d_node, new_routes.o_node)]]
-            d = y_sel.unstack(-1).loc[[(row,col) for col, row in zip(new_routes.o_node, new_routes.d_node)]].reset_index()
-            new_routes['new_time'] = None
-            # Make sure that the lists are not shuffled
-            assert list(zip(d.o_node, d.d_node)) == list(zip(new_routes.o_node, new_routes.d_node))
-            new_routes['new_time'] = d[0].values
-            new_routes['extra_time'] = new_routes['new_time'] - new_routes['time']
+                y_sel = calculate_shortest_paths_matrix(G, x,weighing=weighing)
+                #Todo: weird variable name 'new routes', confusing compared to implementation of other algs.
+                new_routes = od_optimal_routes[aff][['o_node', 'd_node', 'origin', 'destination', 'time']]
+                d = y_sel.unstack(-1).loc[[(row,col) for col, row in zip(new_routes.o_node, new_routes.d_node)]].reset_index()
+                #new_routes['new_time'] = None
+                # Make sure that the lists are not shuffled
+                assert list(zip(d.o_node, d.d_node)) == list(zip(new_routes.o_node, new_routes.d_node))
+                #new_routes['new_time'] = d[0].values
 
-            t5b = time.time()
-            logger.info('t5-t5b: {} sec passed after calculating new routes with new algorithm 2'.format(t5b - t5_1))
+                old_times = od_optimal_routes[aff]['time']
+                new_times = pd.Series(index=old_times.index, data=d[0].values)
+                assert len(old_times) == len(new_times)
+
+                t4 = time.time()
+                logger.info('t3-t4: {} sec passed for calculating new routes, used  algorithm 2'.format(t4 - t3))
+
 
             ### THIRD APPROACH TO ROUTE CALCULATION  ###
-            check_duplicates(x)
-            #so far, there seem to be no duplicates in x, so no need to handle these
-            new_routes3 = calculate_shortest_paths_speedup(G, [int(v) for v in x['o_node']], [int(v) for v in x['d_node']])
+            elif route_algorithm_ == 'version_3':
+                check_duplicates(x) #A duplicate if: OD-pair also exists as DO-pair
+                #so far, there seem to be no duplicates in x, so no need to handle these
+                new_routes = calculate_shortest_paths_speedup(G, [int(v) for v in x['o_node']], [int(v) for v in x['d_node']])
 
-            t5c = time.time()
-            logger.info('t5-t5c: {} sec passed after calculating new routes with new algorithm 3'.format(t5c - t5b))
+                old_times = od_optimal_routes[aff]['time']
+                new_times = pd.Series(index=old_times.index, data=new_routes)
+                ### From here follow the code above
+
+                t4 = time.time()
+                logger.info('t3-t4: {} sec passed for calculating new routes, used  algorithm 3'.format(t4 - t3))
+
+            #### Do some general processing of the results to save in usable output metrics ####
+
+            #Todo: do we stil lneed this?
+            #if not extra_time_n:  # if no extra time (list empty)
+            #    avg_extra_time = 0
+            #else:  # calculate the mean over the routes with detour
+            #    avg_extra_time = mean(extra_time_n)
+
+            # Split detours from no detours
+            no_detours_mask = new_times == float('inf')  # note, this is a bool mask of only the disrupted routes...
+            od_optimal_routes['no_detours'] = no_detours_mask[no_detours_mask]  # ...while this is the mask of all
+            od_optimal_routes['no_detours'] = od_optimal_routes['no_detours'].fillna(False)
+
+            with_detours_mask = ~no_detours_mask
+            od_optimal_routes['with_detours'] = with_detours_mask[
+                with_detours_mask]  # ...while this is the mask of all
+            od_optimal_routes['with_detours'] = od_optimal_routes['with_detours'].fillna(False)
+            assert aff.sum() == od_optimal_routes['with_detours'].sum() + od_optimal_routes['no_detours'].sum()
+
+            OD_with_detour = list(od_optimal_routes[od_optimal_routes['with_detours']]['origin'] + '-' + \
+                                  od_optimal_routes[od_optimal_routes['with_detours']]['destination'])
+
+            extra_time_per_route = new_times - old_times
+
+            ### Handle function output
+            ser.at['AoI combinations'] = nr_comb
+            ser.at['experiment'] = ser.name
+            ser.at['disrupted'] = len(affected_OD_pairs) / tot_routes * 100
+            ser.at['avg extra time'] = (extra_time_per_route[~no_detours_mask]).mean()
+            ser.at['AoI removed'] = json.dumps(np.array(aoi).tolist())
+            ser.at['no detour'] = no_detours_mask.sum() / tot_routes * 100
+            ser.at['OD-disrupted'] = json.dumps(affected_OD_pairs)
+            ser.at['OD-with_detour'] = json.dumps(OD_with_detour)
+            ser.at['with_detour_extra_times'] = json.dumps(
+                ['{:.3f}'.format(t) for t in extra_time_per_route[~no_detours_mask]])
 
 
-            #New bookkeeping for new algorithm 2
-            disrupted_new = aff.sum()
-            new_routes_with_detour = new_routes.loc[~np.isinf(new_routes['extra_time'])]
-            nr_new_routes_with_detour = len(new_routes_with_detour)
-            route_names_with_detour_new = [row['origin'] + '-' + row['destination'] for q, row in new_routes_with_detour.iterrows()]
-            with_detour_extra_times_new = ['{:.3f}'.format(t) for t in new_routes_with_detour['extra_time']]
 
-            new_routes_no_detour = new_routes.loc[np.isinf(new_routes['extra_time'])]
-            nr_no_detour_new = len(new_routes_no_detour)
-
-            #Infs have to be replaced with 0 to do consistent reporting!
-            #new_routes['extra_time'] = new_routes['extra_time'].replace(np.inf,value=0)
-            extra_time_n = list(new_routes_with_detour['time'].values)
-            #extra_time_n.extend([0] * sum(~aff)) ### TODO check this
-
-            if not extra_time_n:  # if no extra time (list empty)
-                avg_extra_time = 0
-            else:  # calculate the mean over the routes with detour
-                avg_extra_time = mean(extra_time_n)
-
-            # output = {'AoI combinations': nr_comb,
-            #           'disrupted': disrupted / tot_routes * 100,
-            #           'avg extra time': avg_extra_time,
-            #           'AoI removed': aoi,
-            #           'no detour': nr_no_detour / tot_routes * 100,
-            #           'OD-disrupted' : affected_OD_pairs,
-            #           'OD-with_detour' : route_names_with_detour,
-            #           'with_detour_extra_times' : with_detour_extra_times
-            # }
-            output_new = {'AoI combinations': nr_comb,
-                      'disrupted': disrupted_new / tot_routes * 100,
-                      'avg extra time': avg_extra_time,
-                      'AoI removed': aoi,
-                      'no detour': nr_no_detour_new / tot_routes * 100,
-                      'OD-disrupted' : affected_OD_pairs,
-                      'OD-with_detour' : route_names_with_detour_new,
-                      'with_detour_extra_times' : with_detour_extra_times_new
-            }
-            df = df.append(output_new, ignore_index=True)
-            df.index = [str(i)]
-            df.to_csv(os.path.join(result_path, str(i) + '.csv'),sep=';')
+            #this gives a transposed output compared to version 1, not very handy for backward compat.
+            #ser.to_csv((result_path / '{}.csv'.format(i)),sep=';',index=True,header=False)
+            pd.DataFrame(ser).T.to_csv((result_path / '{}.csv'.format(i)),sep=';',header=True,index=False)
 
             if special_setting == 'giant_component':
+                gc_start = time.time()
                 # Calculate the metrics for the Giant Component analysis
                 edges_in_graph, nodes_in_graph, edges_in_giant, nodes_in_giant = giant_component_analysis(G,
                                                             mode='strong')
                 d = {'edges_in_graph': edges_in_graph,
-                     'nodes_in_graph': nodes_in_graph,
+                     #'nodes_in_graph': nodes_in_graph, #since we do edge percolation, no need to save these
                      'edges_in_giant': edges_in_giant,
-                     'nodes_in_giant': nodes_in_giant}
-                output.update(d)
-                df_gc_output = pd.DataFrame(pd.Series(output)).T
-                df_gc_output.to_csv((result_gc_path / (str(i) + '.csv')),sep=';')
+                     #'nodes_in_giant': nodes_in_giant}
+                #output.update(d)
+                #df_gc_output = pd.DataFrame(pd.Series(output)).T
+                #df_gc_output.to_csv((result_gc_path / (str(i) + '.csv')),sep=';')
+                gc_end = time.time()
+                logger.info('gc_start - gc end: {} sec for counting giant component edges'.format(gc_end - gc_start))
 
 
 
         end = time.time()
-        logger.info('t5b-tend: {} sec passed up till saving the routes'.format(end - t5b))
+        logger.info('t4-tend: {} sec passed up till saving the routes'.format(end - t4))
 
-        check_n_es = len(G.es)
-        check_n_vs = len(G.vs)
-        logger.info(
-            'Worker after percolation: nr edges|vertices percolated graph: {} | {}'.format(check_n_es, check_n_vs))
+        #check_n_es = len(G.es)
+        #check_n_vs = len(G.vs)
+        #logger.info(
+        #    'Worker after percolation: nr edges|vertices percolated graph: {} | {}'.format(check_n_es, check_n_vs))
 
         logger.info('Finished percolation subprocess. Nr combinations: {}, Experiment nr: {}, time elapsed: {}'.format(nr_comb, i, end - start))
 
@@ -595,7 +557,7 @@ def calculate_shortest_paths_speedup(G, o_nodes, d_nodes, weighing='time'):
                                      output='epath')
         path = paths[0]
         if len(path) == 0:
-            path_time = np.NaN
+            path_time = float('inf') # was np.NaN in Elco's version
         else:
             path_time = sum(G.es[path]['time'])
         path_times.append(path_time)

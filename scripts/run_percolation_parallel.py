@@ -10,14 +10,11 @@ import time
 import logging
 import random
 
-#Todo: fix this by giving package the appropriate name
-#sys.path.append(r"P:\osm_flood\network_analysis\igraph\europe_flood_road_disruption\scripts")
 from percolation_optimized_parallel import stochastic_network_analysis_phase1, stochastic_network_analysis_phase2
 from percolation_optimized_parallel import import_graph, stochastic_network_analysis_phase1_event_sampling
 from utils import load_config
 from Europe_utils import *
 from tqdm import tqdm
-
 
 class RunPercolation:
     def __init__(self, cntry_setup, countries, reps, output_folder,config='config.json',special_setting=None):
@@ -119,7 +116,12 @@ class RunPercolation:
 
 
 
-    def run_par(self, nr_cores,run_mode_):
+    def run_par(self, nr_cores,run_mode_,route_algorithm_):
+        """"
+        Todo: improve docstring
+
+        """
+
         # do the parallel processing
         cntries_todo = self.countries
         cntries_todo = [self.cntry_setup.loc[self.cntry_setup['code3'] == x, 'country'].iloc[0].lower() for x in cntries_todo]
@@ -172,7 +174,7 @@ class RunPercolation:
                 with open(pkl, 'rb') as f:
                     inTuple = pickle.load(f)  # load the original instruction from prep_par
                 outTuple = tuple(
-                    [self.config] + list(inTuple) + [self.special_setting] + [G] + [check_n_es])
+                    [self.config] + list(inTuple) + [self.special_setting] + [G] + [check_n_es] + [route_algorithm_])
 
                 t10 = time.time()
                 stochastic_network_analysis_phase2(outTuple)  # useful for bugfixing
@@ -192,7 +194,7 @@ class RunPercolation:
                 with open(pkl, 'rb') as f:
                     inTuple = pickle.load(f)
                 outTuple = tuple(
-                        [self.config] + list(inTuple) + [self.special_setting] + [G] + [check_n_es])
+                        [self.config] + list(inTuple) + [self.special_setting] + [G] + [check_n_es] + [route_algorithm_])
                 t10 = time.time()
                 stochastic_network_analysis_phase2(outTuple)  # useful for bugfixing
                 t11 = time.time()
@@ -207,7 +209,7 @@ class RunPercolation:
                         with open(pkl, 'rb') as f:
                             inTuple = pickle.load(f)
                         outTuple = tuple(
-                            [self.config] + list(inTuple) + [self.special_setting] + [G.copy()] + [check_n_es])
+                            [self.config] + list(inTuple) + [self.special_setting] + [G.copy()] + [check_n_es] + [route_algorithm_])
                         stochastic_network_analysis_phase2(outTuple)
                 rootLogger.info('Percolation analysis finished for: {}'.format(ctr))
 
@@ -220,7 +222,7 @@ class RunPercolation:
                         with open(pkl, 'rb') as f:
                             inTuple = pickle.load(f)
                         outTuple = tuple(
-                            [self.config] + list(inTuple) + [self.special_setting] + [G] + [check_n_es])
+                            [self.config] + list(inTuple) + [self.special_setting] + [G] + [check_n_es] + [route_algorithm_])
                         todo.append(outTuple)
                 rootLogger.info('In total we will do {} mini-processes.'.format(len(todo)))
 
@@ -266,9 +268,12 @@ if __name__ == '__main__':
     reps_ = 200 #Repetitions per #AoIs
     constrain_reps_ = 20 #Schedule all, but only run these first.
     run_mode_ = ('single','random')
-    #run_mode_ = ('single',30,65)
+    #run_mode_ = ('single',639,0)
     #run_mode_ = ('linear',)
     #run_mode_ = ('parallel',)
+
+    #Select algorithm to run model:
+    route_algorithm_ = ('version_3')
 
     #Read the set-up per country
     config_file = 'config.json'
@@ -287,10 +292,10 @@ if __name__ == '__main__':
     print(outputFolder)
 
     running = RunPercolation(cntry_setup=cntrySetup, countries=countries_, reps=reps_,
-                             output_folder=outputFolder,config=config_file,special_setting=None)
+                             output_folder=outputFolder,config=config_file,special_setting='giant_component')
 
     #running.prep_par()
-    running.run_par(nr_cores=4,run_mode_=run_mode_)
+    running.run_par(nr_cores=4,run_mode_=run_mode_,route_algorithm_=route_algorithm_)
 
     # if sys.argv[1] == 'prep_par':
     #     running.prep_par()
