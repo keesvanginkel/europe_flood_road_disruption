@@ -344,11 +344,7 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',config_file='con
     all_aois = list(set([int(x) for l in list(network['AoI_RP100y_unique']) for x in l if (x != 0) and (x == x)]))
     max_aoi = len(all_aois)
 
-    list_combinations = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900,
-                         1000, 1100, 1200, 1300, 1400, 1500]
-    list_combinations = [x for x in list_combinations if x < max_aoi]
-    list_combinations.append(max_aoi)
-    list_combinations = [str(x) for x in list_combinations]
+    list_combinations = new_list_combinations(max_aoi)
 
     #Todo: make sure it does not add empty columns
     combinations_csv = config['paths']['data'] / "{}_combinations.csv".format(nuts_class)
@@ -428,6 +424,47 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',config_file='con
     #except KeyError as e:
     #    print(current_country, 'is not an EU memberstate.', e)
 
+
+#Test list combinations
+def old_list_combinations(max_aoi):
+    list_combinations = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900,
+                         1000, 1100, 1200, 1300, 1400, 1500]
+    list_combinations = [x for x in list_combinations if x < max_aoi]
+    list_combinations.append(max_aoi)
+    list_combinations = [str(x) for x in list_combinations]
+    return list_combinations
+
+def new_list_combinations(max_aoi):
+    from math import floor
+
+    list_combinations = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900,
+                         1000, 1100, 1200, 1300, 1400, 1500,1600,1700]
+    list_combinations.append(max_aoi)
+    if max_aoi <= 250:
+        twenties = list(range(0,201,20))
+        list_combinations.extend(twenties)
+
+    if 200 < max_aoi <= 600:
+        fifties = list(range(0,601,50))
+        list_combinations.extend(fifties)
+        list_combinations.append(max_aoi-10)
+
+    elif max_aoi > 600:
+        last_sampled = floor(max_aoi/100)*100 #last manyfold of hundred that was sampled
+        delta = max_aoi-last_sampled
+        if delta > 50:
+            list_combinations.append(last_sampled+50)
+        else:
+            list_combinations.append(last_sampled-50)
+        list_combinations.append(max_aoi-20)
+
+    #Give a smooth end to the curves
+    list_combinations.extend([max_aoi-2,max_aoi-5])
+
+    list_combinations = [x for x in list_combinations if x <= max_aoi]
+    list_combinations = sorted(list(set(list_combinations)))
+    list_combinations = [str(x) for x in list_combinations]
+    return list_combinations
 
 # create_centroids_csv(nuts_2_regions, ['LEVL_CODE', 'FID'], os.path.join(input_folder, 'europe_nuts2_centroids.feather'))
 
