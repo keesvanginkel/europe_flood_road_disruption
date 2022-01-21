@@ -267,13 +267,13 @@ if __name__ == '__main__':
     nuts_level = 'nuts3'
     reps_ = 200 #Repetitions per #AoIs
     constrain_reps_ = 20 #Schedule all, but only run these first.
-    run_mode_ = ('single','random')
-    #run_mode_ = ('single',639,0)
-    #run_mode_ = ('linear',)
+    #run_mode_ = ('single','random')
+    #run_mode_ = ('single',6,130)
+    run_mode_ = ('linear',)
     #run_mode_ = ('parallel',)
 
     #Select algorithm to run model:
-    route_algorithm_ = ('version_3')
+    route_algorithm_ = ('version_2')
 
     #Read the set-up per country
     config_file = 'config.json'

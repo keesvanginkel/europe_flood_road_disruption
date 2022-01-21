@@ -300,18 +300,9 @@ def stochastic_network_analysis_phase2(tup):
 
         # SKIP IF NR of COMBINATIONS OF AOI IS ALREADY FINISHED BY CHECKING IF OUTPUT FILE IS ALREADY CREATED
         result_path = output_folder / country_name / 'finished' / str(nr_comb)
+        result_path.mkdir(exist_ok=True,parents=True)
+
         result_file = result_path / (str(i) + '.csv')
-        result_path.mkdir(exist_ok=True)
-
-
-
-        if special_setting == 'giant_component':
-            #Todo: integrate this
-            result_gc_path = output_folder / country_name / 'finished_gc' / str(nr_comb)
-            # noinspection PyUnreachableCode
-            if not result_gc_path.exists():
-                result_gc_path.mkdir(parents=True, exist_ok=True)
-
         if result_file.exists():
             logger.info('nr_comb = {}, experiment = {} already finished!'.format(nr_comb,i))
             return None
@@ -337,16 +328,18 @@ def stochastic_network_analysis_phase2(tup):
             # initiate variables
             ser = pd.Series(name=i,
                             index=['AoI combinations',
-                                  'experiment',
+                                   'experiment',
                                    'disrupted',
+                                   'no detour',
                                    'avg extra time',
                                    'AoI removed',
-                                   'no detour',
                                    'OD-disrupted',
                                    'OD-with_detour',
                                    'with_detour_extra_times'],
                             dtype=object)
             tot_routes = len(od_optimal_routes.index)
+
+
 
             # remove the edges per flood event (Area of Influence)
             if nr_comb == 1:
@@ -354,32 +347,39 @@ def stochastic_network_analysis_phase2(tup):
             else:
                 to_remove = G.es.select(lambda e: set(aoi) & set(e.attributes()[AoI_name]))
 
+            # Iterate over edges that are planned to be removed based on their AoI info, to do further filtering
+            if special_setting == 'depth_threshold':
+                # only remove edges that are inundated above a certain threshold
+                to_remove = [edge for edge in to_remove if edge['RP100_max_flood_depth'] >= depth_threshold]
+
             # identify the od_optimal_routes that are affected, i.e. they have at least one edge that is to be removed
             aff = od_optimal_routes['e_ids'].apply(lambda x: common_member(json.loads(x), to_remove.indices))
             conc = od_optimal_routes[aff]['origin'] + '-' + od_optimal_routes[aff]['destination']
             affected_OD_pairs = list(conc.values)
-            # Todo: save this value to the output df
+
+
 
             t2 = time.time()
             logger.info('t1-t2: {} sec passed for selection to removed edges'.format(t2 - t1))
 
-            #Iterate over edges that are planned to be removed based on their AoI info, to do further filtering
-            if special_setting == 'depth_threshold':
-                #only remove edges that are inundated above a certain threshold
-                to_remove = [edge for edge in to_remove if edge['RP100_max_flood_depth'] >= depth_threshold]
+
 
 
 
             if special_setting == 'giant_component':
+                result_gc_path = output_folder / country_name / 'finished_gc'
+                if not result_gc_path.exists():
+                    result_gc_path.mkdir(parents=False, exist_ok=True)
+
                 # Calculate reference metrics for undisturbed graph, only in the first iteration
-                file = result_gc_path.parents[0] / 'reference.csv'
+                file = result_gc_path / 'reference.csv'
                 if not file.exists():
                     logger.info('calculating refence metrics for giant component analysis, saving to {}'.format(file))
                     edges_in_graph, nodes_in_graph, edges_in_giant, nodes_in_giant = giant_component_analysis(G,mode='strong')
                     d = {'ref_edges_in_graph' : edges_in_graph,
-                         'ref_nodes_in_graph' : nodes_in_graph,
-                         'ref_edges_in_giant' : edges_in_giant,
-                         'ref_nodes_in_giant' : nodes_in_giant}
+                         #'ref_nodes_in_graph' : nodes_in_graph, #does not change because we do edge percolation
+                         'ref_edges_in_giant' : edges_in_giant} #,
+                         #'ref_nodes_in_giant' : nodes_in_giant}
                     result = pd.DataFrame(pd.Series(data=d,name='undisturbed graph')).T
                     result.to_csv(file,sep=';')
 
@@ -433,18 +433,10 @@ def stochastic_network_analysis_phase2(tup):
 
                 old_times = od_optimal_routes[aff]['time']
                 new_times = pd.Series(index=old_times.index, data=new_routes)
-                ### From here follow the code above
-
                 t4 = time.time()
                 logger.info('t3-t4: {} sec passed for calculating new routes, used  algorithm 3'.format(t4 - t3))
 
             #### Do some general processing of the results to save in usable output metrics ####
-
-            #Todo: do we stil lneed this?
-            #if not extra_time_n:  # if no extra time (list empty)
-            #    avg_extra_time = 0
-            #else:  # calculate the mean over the routes with detour
-            #    avg_extra_time = mean(extra_time_n)
 
             # Split detours from no detours
             no_detours_mask = new_times == float('inf')  # note, this is a bool mask of only the disrupted routes...
@@ -466,7 +458,10 @@ def stochastic_network_analysis_phase2(tup):
             ser.at['AoI combinations'] = nr_comb
             ser.at['experiment'] = ser.name
             ser.at['disrupted'] = len(affected_OD_pairs) / tot_routes * 100
-            ser.at['avg extra time'] = (extra_time_per_route[~no_detours_mask]).mean()
+            if len(extra_time_per_route) == 0:
+                ser.at['avg extra time'] = 0
+            else:
+                ser.at['avg extra time'] = (extra_time_per_route[~no_detours_mask]).mean()
             ser.at['AoI removed'] = json.dumps(np.array(aoi).tolist())
             ser.at['no detour'] = no_detours_mask.sum() / tot_routes * 100
             ser.at['OD-disrupted'] = json.dumps(affected_OD_pairs)
@@ -475,11 +470,6 @@ def stochastic_network_analysis_phase2(tup):
                 ['{:.3f}'.format(t) for t in extra_time_per_route[~no_detours_mask]])
 
 
-
-            #this gives a transposed output compared to version 1, not very handy for backward compat.
-            #ser.to_csv((result_path / '{}.csv'.format(i)),sep=';',index=True,header=False)
-            pd.DataFrame(ser).T.to_csv((result_path / '{}.csv'.format(i)),sep=';',header=True,index=False)
-
             if special_setting == 'giant_component':
                 gc_start = time.time()
                 # Calculate the metrics for the Giant Component analysis
@@ -487,13 +477,16 @@ def stochastic_network_analysis_phase2(tup):
                                                             mode='strong')
                 d = {'edges_in_graph': edges_in_graph,
                      #'nodes_in_graph': nodes_in_graph, #since we do edge percolation, no need to save these
-                     'edges_in_giant': edges_in_giant,
-                     #'nodes_in_giant': nodes_in_giant}
-                #output.update(d)
-                #df_gc_output = pd.DataFrame(pd.Series(output)).T
-                #df_gc_output.to_csv((result_gc_path / (str(i) + '.csv')),sep=';')
+                     'edges_in_giant': edges_in_giant
+                     #'nodes_in_giant': nodes_in_giant
+                     }
+                ser = ser.append(pd.Series(d))
                 gc_end = time.time()
                 logger.info('gc_start - gc end: {} sec for counting giant component edges'.format(gc_end - gc_start))
+
+            # this gives a transposed output compared to version 1, not very handy for backward compat.
+            # ser.to_csv((result_path / '{}.csv'.format(i)),sep=';',index=True,header=False)
+            pd.DataFrame(ser).T.to_csv((result_path / '{}.csv'.format(i)), sep=';', header=True, index=False)
 
 
 
