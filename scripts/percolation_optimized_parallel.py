@@ -109,8 +109,50 @@ def import_optimal_routes(the_country,config_file='config.json'):
 
     return optimal_routes
 
+#def aoi_combinations(all_aois_list, nr_comb, nr_iterations):
+#    ### THIS FUNCTION CONTAINS AN ERROR, THIS DOES NOT RETURN COMBINATIONS!
+#    return [random.choices(all_aois_list, k=nr_comb) for i in range(nr_iterations)]
+
 def aoi_combinations(all_aois_list, nr_comb, nr_iterations):
-    return [random.choices(all_aois_list, k=nr_comb) for i in range(nr_iterations)]
+    """"
+    Draws multiple combinations from a (larger) set of AoIs
+
+    Arguments:
+        *all_aois_list* (list) : list containing all the possible aois to draw from
+        *nr_comb* (int) : how much items one selection of the set must contain
+        *nr_iterations* (int) : how often a selection from the set is to be made
+
+    Two improvements over version 1:
+         - Draw REAL combinations per selection, without repetition. In vs 1, repetion of aoi in one selection was possible
+         - Avoid duplicate selections
+    """
+    assert len(all_aois_list) == len(set(all_aois_list)) ### make sure there are no duplicates in the aoi list
+
+    from itertools import combinations
+    from random import shuffle
+    #Check that there are enough combinations
+    from math import comb
+
+    ncr =  comb(len(all_aois_list),nr_comb)
+    if ncr <= nr_iterations:
+        warnings.warn("Can only draw {} combinations from {} aois, while {} were requested".format(
+                ncr,len(all_aois_list),nr_iterations))
+        nr_iterations = ncr #Limit the nr of subsequences to the maximum theoretical possible #Todo check if our approach always finds these
+
+    result = []
+    # Because the itertools generator draws combinations in sorted order, for safety we shuffle list each time
+    while len(result) < nr_iterations:
+        shuffle(all_aois_list)
+        Iterator = combinations(all_aois_list,nr_comb)
+        subsequence = next(Iterator)
+        assert len(subsequence) == len(set(subsequence)) #check for duplicates within one subsequence
+        set_subsequence  = set(subsequence) #first save as sets to easy check for duplicates
+        if set_subsequence not in result: #check for duplicates between subsequences
+            result.append(set_subsequence)
+
+    result = [list(r) for r in result] #convert sets to lists
+
+    return result
 
 
 def stochastic_network_analysis_phase1(config_file,G, nr_comb, nr_reps, country_code3, nuts_class, list_finished=None):
@@ -151,16 +193,14 @@ def stochastic_network_analysis_phase1(config_file,G, nr_comb, nr_reps, country_
     elif nr_comb == len(all_aois):
         list_aois = [all_aois]
     else:
-        if list_finished is not None:
-            print("this function should be found in one of the scripts of COACCH but not used now")
-            # list_aois = aoi_combinations_except(all_aois, nr_comb, nr_reps, list_finished)
-        else:
-            list_aois = aoi_combinations(all_aois, nr_comb, nr_reps)
+        list_aois = aoi_combinations(all_aois, nr_comb, nr_reps)
 
     for i, aoi in enumerate(list_aois):
         # i indicates the index of the experiments
         # each experiment is a unique combination of AoI's disrupted at the same time
         filename = output_folder / current_country / 'scheduled' / str(nr_comb) / (str(i) + '.pkl')
+
+        #Todo? We possibly could save the scheduled aois as csv so that they are more easy to inspect.
         with open(filename, 'wb') as f:
             pickle.dump((nr_comb, aoi, i, current_country, country_code3, nuts_class), f)
 

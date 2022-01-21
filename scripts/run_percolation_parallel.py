@@ -294,8 +294,8 @@ if __name__ == '__main__':
     running = RunPercolation(cntry_setup=cntrySetup, countries=countries_, reps=reps_,
                              output_folder=outputFolder,config=config_file,special_setting='giant_component')
 
-    #running.prep_par()
-    running.run_par(nr_cores=4,run_mode_=run_mode_,route_algorithm_=route_algorithm_)
+    running.prep_par()
+    #running.run_par(nr_cores=4,run_mode_=run_mode_,route_algorithm_=route_algorithm_)
 
     # if sys.argv[1] == 'prep_par':
     #     running.prep_par()
