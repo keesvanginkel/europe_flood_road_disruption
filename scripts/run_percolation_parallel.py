@@ -266,6 +266,7 @@ if __name__ == '__main__':
     countries_ = [N0_to_3L('HU')]
     nuts_level = 'nuts3'
     reps_ = 200 #Repetitions per #AoIs
+    #Todo: cleanup constrain_reps_
     constrain_reps_ = 20 #Schedule all, but only run these first.
     #run_mode_ = ('single','random')
     #run_mode_ = ('single',6,130)
@@ -273,7 +274,7 @@ if __name__ == '__main__':
     #run_mode_ = ('parallel',)
 
     #Select algorithm to run model:
-    route_algorithm_ = ('version_2')
+    route_algorithm_ = ('version_3')
 
     #Read the set-up per country
     config_file = 'config.json'
@@ -294,8 +295,8 @@ if __name__ == '__main__':
     running = RunPercolation(cntry_setup=cntrySetup, countries=countries_, reps=reps_,
                              output_folder=outputFolder,config=config_file,special_setting='giant_component')
 
-    running.prep_par()
-    #running.run_par(nr_cores=4,run_mode_=run_mode_,route_algorithm_=route_algorithm_)
+    #running.prep_par()
+    running.run_par(nr_cores=4,run_mode_=run_mode_,route_algorithm_=route_algorithm_)
 
     # if sys.argv[1] == 'prep_par':
     #     running.prep_par()

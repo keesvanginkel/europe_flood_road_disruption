@@ -29,6 +29,7 @@ import json
 from utils import load_config
 
 import logging
+from Europe_utils import *
 
 # translation between countrycodes (2- and 3-letter and country names)
 #Todo: these config loads should be avoided; directly load from europe_utils
@@ -80,14 +81,29 @@ def import_graph(the_country, nuts_class='nuts3',config_file='config.json'):
     G = graph_load(network, ['geometry', 'id', 'RP100_cells_intersect', 'RP100_max_flood_depth',
                              'AoI_RP100y_majority', 'AoI_RP100y_unique', 'fds_majority', 'fds__unique'])
 
+
+    #### THIS IS THE OLD VERSION
     # Add the nodes
-    nodes = feather.read_dataframe(edge_file.replace("-edges", "-nodes_{}".format(nuts_class)))
-    nodes.geometry = pyg.from_wkb(nodes.geometry)
+    #nodes = feather.read_dataframe(edge_file.replace("-edges", "-nodes_{}".format(nuts_class)))
+    #nodes.geometry = pyg.from_wkb(nodes.geometry)
 
     # Add the nodes to the graph
-    G.add_vertices(len(nodes))
-    G.vs['id'] = nodes['id']
-    G.vs[nuts_class] = nodes[nuts_class]
+    #G.add_vertices(len(nodes))
+    #G.vs['id'] = nodes['id']
+    #G.vs[nuts_class] = nodes[nuts_class]
+
+    #### NEW VERSION: read only the additional nuts-info from the json
+    full_name = country_names([the_country][0]) #.upper?
+    folder = config['paths']['preproc_output'] / full_name
+    json_file = folder / (the_country+ '_' + nuts_class + '__vertexID_to_nuts.json')
+    with open(json_file, 'r') as f:
+        vertexID_to_nuts = json.load(f)
+
+    #id_to_nuts = [(values, key) for (key, values) in vertexID_to_nuts.items()]
+    set_values = [None] * len(G.vs)
+    for key, value in vertexID_to_nuts.items():
+        set_values[value] = key
+    G.vs[nuts_class] = set_values
 
     #print(G.summary())
     return G
@@ -533,10 +549,10 @@ def stochastic_network_analysis_phase2(tup):
         end = time.time()
         logger.info('t4-tend: {} sec passed up till saving the routes'.format(end - t4))
 
-        #check_n_es = len(G.es)
-        #check_n_vs = len(G.vs)
-        #logger.info(
-        #    'Worker after percolation: nr edges|vertices percolated graph: {} | {}'.format(check_n_es, check_n_vs))
+        check_n_es = len(G.es)
+        check_n_vs = len(G.vs)
+        logger.info(
+            'Worker after percolation: nr edges|vertices percolated graph: {} | {}'.format(check_n_es, check_n_vs))
 
         logger.info('Finished percolation subprocess. Nr combinations: {}, Experiment nr: {}, time elapsed: {}'.format(nr_comb, i, end - start))
 
