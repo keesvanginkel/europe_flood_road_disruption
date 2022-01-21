@@ -17,7 +17,7 @@ from warnings import warn
 import Europe_utils as eu
 from utils import load_config
 import pdb as pdb
-config_file = 'config-KeesWork.json' #also declared at the top of the file (ugly fix)
+config_file = 'config.json' #also declared at the top of the file (ugly fix)
 config = load_config(config_file)
 
 #Suppress pandas SettingWithCopyWarning
@@ -49,11 +49,12 @@ group_operations = group_operations()
 
 
 # Everything below  is a sort preprocessing step, before the actual plotting starts
-def aggregate_results_step1(ignore = [None],config=None):
+def aggregate_results_step1(select = 'all', ignore = [None],config=None):
     """
     Function to aggregate the raw results of the percolation analysis
     
     Arguments:
+        *select* ('all') or (list of countries) : if not 'all': only analyse these countries
         *ignore* (list of countries) : list of countries that you don't want to analyse e.g. ['denmark','latvia']
         *config* (configuration file) : output of load_config; if not provided, will load default config.json
     Effect:
@@ -69,7 +70,10 @@ def aggregate_results_step1(ignore = [None],config=None):
     countries_paths = [x for x in country_results_folder.iterdir() if x.is_dir()]
     countries = [x.stem for x in countries_paths]
     print('Identified {} countries'.format(len(countries)))
-    print('To aggregate: {}'.format(countries))
+    if select != 'all':
+        print('To aggregate: {}'.format(select))
+    else:
+        print('To aggregate: {}'.format(countries))
     print('To ignore: {}'.format(ignore))
     while True:
         if input('Do You Want To Continue? Press y to continue.') != 'y':
@@ -78,6 +82,10 @@ def aggregate_results_step1(ignore = [None],config=None):
             if path.stem in ignore:
                 print('ignoring {}'.format(path))
             else:
+                if select != 'all':
+                    if path.stem not in select:
+                        print('{} not selected'.format(path.stem))
+                        continue
                 print('Start aggregating {}'.format(path))
                 finished_folder = path / 'finished'
                 if not finished_folder.exists():
@@ -87,11 +95,12 @@ def aggregate_results_step1(ignore = [None],config=None):
                 combine_finished_stochastic(finished_folder)
                 print('{}: Aggregated raw pickles per experiment, to .csv per # combinations'.format(path.stem))
 
-def aggregate_results_step2(ignore = [None],config=None):
+def aggregate_results_step2(select = 'all',ignore = [None],config=None):
     """
     Function to aggregate the raw results of the percolation analysis
 
     Arguments:
+        *select* ('all') or (list of countries) : if not 'all': only analyse these countries
         *ignore* (list of countries) : list of countries that you don't want to analyse e.g. ['denmark','latvia']
         *config* (configuration file) : output of load_config; if not provided, will load default config.json
     Effect:
@@ -107,10 +116,9 @@ def aggregate_results_step2(ignore = [None],config=None):
     print('Starting step 2:')
     countries_paths = [x for x in country_results_folder.iterdir() if x.is_dir()]
     countries = [x.stem for x in countries_paths if x.stem not in ignore]
-    
-    
-    
-    folders = [df_stochastic_results(folder=country_results_folder / c / 'finished') for c in countries]
+    if select != 'all':
+        countries = [c for c in countries if c in select]
+        folders = [df_stochastic_results(folder=country_results_folder / c / 'finished') for c in countries]
     dict_dfs = dict(zip(countries, folders)) #keys are countries, values dataframes with results
 
     #Step 2b: Summarize the results of all countries
@@ -141,17 +149,27 @@ def combine_finished_stochastic(finished_folder):
     if any([p.suffix == '.csv' for p in finished_folder.iterdir()]):
         raise Exception('This folder already contains .csv files, did you already run this script?')
 
-
     for folder in finished_folder.iterdir():
         if folder.is_dir():
             files = [f for f in folder.iterdir()]
-            df = pd.read_csv(files[0],sep=';',index_col=0)  #avoid empty column
-            df.index = [int(files[0].stem)] #use filename as index
+            df = pd.read_csv(files[0],sep=';')  #avoid empty column
+            #df.index = [int(files[0].stem)] #use filename as index
             for file in files[1:]:
-                df_add = pd.read_csv(file,sep=';',index_col=0)
-                df_add.index = [int(file.stem)]  # use filename as index
+                df_add = pd.read_csv(file,sep=';')
+                #df_add.index = [int(file.stem)]  # use filename as index
                 df = pd.concat([df, df_add], sort='False')
-            df.to_csv(finished_folder / "aoi_{}.csv".format(folder.stem),sep=';')
+
+            columns = list(df.columns)
+
+            column_order = ['AoI combinations','experiment','disrupted','no detour','avg extra time','AoI removed',
+                            'OD-disrupted', 'OD-with_detour', 'with_detour_extra_times']
+            if 'edges_in_giant' in columns:
+                column_order.extend(['edges_in_graph','edges_in_giant'])
+
+            df = df.reindex(columns=column_order)
+            df = df.sort_values(by='experiment')
+            df.to_csv(finished_folder / "aoi_{}.csv".format(folder.stem),sep=';',index=False)
+
 
         print('Combine_finished_stochastic finished for {}'.format(folder))
 
@@ -167,15 +185,16 @@ def df_stochastic_results(folder):
         *df* (DataFrame) : contains the results per #combinations (rows)
 
     """
-    files = [f for f in os.listdir(folder) if (os.path.isfile(os.path.join(folder, f))) and (f.endswith('.csv'))]
+    files = [f for f in folder.iterdir() if (f.suffix == '.csv')]
 
     # load data
-    df = pd.DataFrame(columns=['AoI combinations', 'disrupted', 'avg extra time', 'AoI removed', 'no detour'])
-    for f in files:
-        df_new = pd.read_csv(os.path.join(folder, f),sep=';',index_col=0)
+    df = pd.read_csv(files[0],sep=';')
+    for f in files[1:]:
+        df_new = pd.read_csv(os.path.join(folder, f),sep=';')
         df = pd.concat([df, df_new], sort=False) #ignore_index=True
 
     df['AoI combinations'] = df['AoI combinations'].astype(int)
+    df = df.sort_values(by=['AoI combinations','experiment'])
     return df
 
 ######################################## SOME MAIN FUNCTIONALITY NEEDED FOR MANY VISUALISATIONS ##########################
@@ -1005,7 +1024,7 @@ def check_actual_routes():
 if __name__ == '__main__':
 
     #Load configuration file
-    config_file = 'config-KeesWork.json' #also declared at the top of the file (ugly fix)
+    config_file = 'config.json' #also declared at the top of the file (ugly fix)
     config = load_config(config_file)
 
     #Derive how actual preferred routes were calculated in the preprocessing
@@ -1018,7 +1037,7 @@ if __name__ == '__main__':
 
     #plotly_plot(df,['Albania','Austria','Belgium'])
 
-    #boxplot_one_country(df, 'Albania')
+    boxplot_one_country(df, 'Hungary',save=True)
 
     #Sort countries by nr of AoIs
     max_aoi_comb = df.groupby('country')["AoI combinations"].max().to_dict()
@@ -1060,6 +1079,8 @@ if __name__ == '__main__':
 
     ### PROCESS NO DETOUR RESULTS ###
     no_dt_abs, no_dt_rel = process_no_detour(df)
+    no_detour_boxplot(df, 'Hungary', True)
+    extra_time_boxplot(df, 'Hungary',True)
     #Example of no detour results plotting
     #no_detour_aggregated_lineplot(no_dt_rel, ['Germany', 'France'])
     #for countries in groups_version1:
