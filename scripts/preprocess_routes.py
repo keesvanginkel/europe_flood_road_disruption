@@ -29,6 +29,7 @@ from network import nearest #trails import
 
 import itertools
 import feather
+import json
 from pathlib import Path
 from shapely import wkt
 from shapely.geometry import MultiLineString
@@ -190,10 +191,6 @@ def gdf_to_shp(gdf, result_shp):
     gdf.to_file(result_shp, driver='ESRI Shapefile', encoding='utf-8')
 
 
-# iterate over the graphs
-#Todo: fix issue that the csv file gets a dummy col after each iteration
-#Todo: check if there are routes with length 0
-
 def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',config_file='config.json',special_setting=None):
     """
     Preprocessing: finds the optimal routes between the NUTS-3 or NUTS-2 regions in a country
@@ -314,8 +311,12 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',config_file='con
                              'AoI_RP100y_majority', 'AoI_RP100y_unique', 'fds_majority', 'fds__unique'])
 
     # read nodes
+    #Todo: this is possible not necessary?
     nodes = feather.read_dataframe(edge_file.replace("-edges", "-nodes"))
     nodes.geometry = pyg.from_wkb(nodes.geometry)
+
+    #Solution: figure out which nodes are closest using the nodes file
+
 
     # find the nodes that are closest to the centroids of the NUTS-3 regions
     node_ids_od_pairs = prepare_possible_OD_EU(selected_centroids, nodes, tolerance=0.5) #was 0.1
@@ -324,18 +325,24 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',config_file='con
         missing_nuts = [n for n in list(selected_centroids.NUTS_ID.unique()) if n not in list(zip(*node_ids_od_pairs))[1]]
         print("NUTS-regions excluded in analysis: {}".format(print(missing_nuts)))
 
+    #Save the results as a json-file
+    ids_to_nuts = dict([(nuts, id.item()) for (id, nuts) in node_ids_od_pairs]) #keys: nuts-code; value = vertex id in the graph
+    outfile = country_dir / (cntry + '_' + nuts_class + '__vertexID_to_nuts.json')
+    with open(outfile, 'w') as f:
+        json.dump(ids_to_nuts, f)
 
+    #Temporary fix: add the nuts-number to the matching node ids
     for n_id, nuts_code in node_ids_od_pairs:
         nodes.loc[nodes['id'] == n_id, nuts_class] = nuts_code  # Can be nuts2 or nuts3
 
-    # Add the nodes to the graph
-    G.add_vertices(len(nodes))
+    assert len(G.vs) == len(nodes)
     G.vs['id'] = nodes['id']
     G.vs[nuts_class] = nodes[nuts_class]
+    #Check if the number of vertices with nuts-data matched the number of centroids
+    assert len([v for v in G.vs if not pd.isna(v[nuts_class])]) == len(selected_centroids)
 
-    print(G.summary())
 
-    # Save nodes as feather
+    #Not sure if this part is still needed
     nodes.geometry = pyg.to_wkb(nodes.geometry)
     nodes.to_feather(edge_file.replace("-edges", "-nodes_{}".format(nuts_class)))
 
@@ -348,7 +355,7 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',config_file='con
 
     #Todo: make sure it does not add empty columns
     combinations_csv = config['paths']['data'] / "{}_combinations.csv".format(nuts_class)
-    df = pd.read_csv(combinations_csv,sep=';')
+    df = pd.read_csv(combinations_csv,sep=';',index_col=0)
     nr_optimal_routes = df.loc[df['code3'] == cntry, 'nr_routes'].iloc[0]
     df.loc[df['code3'] == cntry, 'aoi_combinations'] = " ".join(list_combinations)
     df.to_csv(combinations_csv,sep=';')
@@ -369,6 +376,8 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',config_file='con
         if G.degree(d[0]) == 0:
             raise ValueError('Destination node/vertex {} has degree 0, meaning that it is not connected to the graph'.format(d))
 
+
+        #This way of calculating the routes is much less efficient
         optimal_route = G.shortest_paths_dijkstra(source=o[0], target=d[0], mode=ig.OUT, weights=weighing)
 
         # Get the nodes and edges of the shortest path.
@@ -466,9 +475,8 @@ def new_list_combinations(max_aoi):
     list_combinations = [str(x) for x in list_combinations]
     return list_combinations
 
-# create_centroids_csv(nuts_2_regions, ['LEVL_CODE', 'FID'], os.path.join(input_folder, 'europe_nuts2_centroids.feather'))
 
-if False: #run this block to do preprocessing
+if False: #run this block to do create the centroids file
     #3/5/2021: made new versions of Frederiques initital centroids files, because some NUTS-3 regions seemed to be missing
     # in Latvia and Sweden (among others)
     config = load_config()
@@ -503,7 +511,7 @@ if __name__ == '__main__':
     #print(countries)
 
     #Single run
-    optimal_routes('BEL',nuts_class='nuts3',weighing='time',config_file='config_unc.json',special_setting=None)
+    optimal_routes('HUN',nuts_class='nuts3',weighing='time',config_file='config.json',special_setting=None)
 
     #Multiple runs (sequential)
     #for country in countries:
