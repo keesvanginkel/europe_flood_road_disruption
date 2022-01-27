@@ -38,6 +38,7 @@ from numpy import object as np_object
 from tqdm import tqdm
 from pathos.multiprocessing import Pool
 import warnings
+import logging
 
 from utils import load_config
 from Europe_utils import NUTS_2_islands, NUTS_3_remote,NUTS_3_islands
@@ -191,6 +192,31 @@ def gdf_to_shp(gdf, result_shp):
     gdf.to_file(result_shp, driver='ESRI Shapefile', encoding='utf-8')
 
 
+
+def log_preprop_optimal_routes(cntry,nuts_class,weighing,config):
+    """
+    Create a logger for optimal_routes()
+
+    """
+    logFormatter = logging.Formatter(
+        "%(asctime)s [%(threadName)-12.12s] [%(funcName)20s()] [%(levelname)-5.5s]  %(message)s")
+    logger = logging.getLogger("{}-{}-{}".format(__name__,cntry,nuts_class,weighing))
+    logger.setLevel(logging.DEBUG)
+
+    consoleHandler = logging.StreamHandler()
+    consoleHandler.setFormatter(logFormatter)
+    logger.addHandler(consoleHandler)
+
+    #Add file handler
+    logger_filename = config['paths']['logs'] / 'preprocessing' / 'log_{}_{}_{}_{}.log'.format(
+        'PreProc_OptimalRoutes', cntry, nuts_class, weighing)
+    fileHandler = logging.FileHandler(logger_filename)
+    fileHandler.setFormatter(logFormatter)
+    logger.addHandler(fileHandler)
+
+    logger.info('Logger is created for optimal_routes()')
+    return logger
+
 def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',config_file='config.json',special_setting=None):
     """
     Preprocessing: finds the optimal routes between the NUTS-3 or NUTS-2 regions in a country
@@ -208,230 +234,251 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',config_file='con
      - feather files with edges and nodes of the road network of the country: in output_folder
      - feather file with the centroids of the NUTS2 or NUTS-3 regions in the country
     """
-    #Some very specific settings, only used when doing uncommon things, such as the
-                                 # uncertainty analysis
-    if special_setting != None:
-        warnings.warn("Running in non-default mode, with special setttings '{}'".format(special_setting))
-
-    if special_setting in ['Flanders','Wallonia']:
-        from Europe_utils import NUTS_3_Flanders, NUTS_3_Wallonia
-
-    if weighing != 'time':
-        warnings.warn("Running in non-default mode. The weighing of routes is not done by time, but by '{}'.".format(weighing))
-
-
     config = load_config(file=config_file)
 
-    # define in- and output folders
-    output_folder = config['paths']['preproc_output']
+    # INSTANTIATE LOGGING FUNCTIONALITY
+    logger = log_preprop_optimal_routes(cntry, nuts_class, weighing,config=config)
+    logger.info('Logging optimal_routes() for cntry "{}", nuts_class "{}", weighing "{}"'.format(cntry,nuts_class,weighing))
 
-    # Location of graphs of all countries in Europe, saved in *.feather format
-    networks_europe_path = config['paths']['graphs_folder']
-    edge_file = [os.path.join(networks_europe_path, f) for f in os.listdir(networks_europe_path) if
-                 f == cntry + '-edges.feather'][0]
+    try:
+        #Some very specific settings, only used when doing uncommon things, such as the
+                                     # uncertainty analysis
+        if special_setting != None:
+            logger.warning("Running in non-default mode, with special setttings '{}'".format(special_setting))
 
-    # Get the country codes from the *.feather files (networks) and see with a country code
-    # translation table which countries are there
-    country_codes = config['paths']['data'] / 'country_codes.csv'
-    assert country_codes.exists
-    translate_cntr_codes = pd.read_csv(country_codes, delimiter=';').set_index('code3').to_dict(orient='dict')
+        if special_setting in ['Flanders','Wallonia']:
+            from Europe_utils import NUTS_3_Flanders, NUTS_3_Wallonia
 
-    current_country = translate_cntr_codes['country'][cntry].lower()
-    if current_country.endswith(' '): #Remove space in last character of country name (if any)
-        current_country = current_country[:-1]
-    print("\nCurrent iteration is for:", current_country)
-
-    country_dir = output_folder / current_country
-    od_matrix = country_dir / 'optimal_routes_{}_{}.feather'.format(weighing, current_country)
-
-    # create the folder if it does not exist yet
-    if not country_dir.exists() : country_dir.mkdir()
-
-    if od_matrix.exists():
-        warnings.warn('Optimal_routes(): Country = {} already finished! Stops function.'.format(current_country))
-        return None
-
-    # The centroids of the NUTS-3/NUTS-2 regions
-    centroids = config['paths']['data'] / 'europe_{}_centroids.feather'.format(nuts_class)
-    if special_setting == 'Benelux':
-        centroids = config['paths']['data'] / 'benelux_nuts3_centroids.feather'
-    elif special_setting == 'Rhine-alpine':
-        centroids = config['paths']['data'] / 'rhine_alphine_ods.feather'
-    elif special_setting == 'shifted_centroids':
-        centroids = config['paths']['data'] / 'belgium_shifted_centroids.feather'
-
-    centroids = pd.read_feather(centroids)
-
-    # select the centroids that are in the country that is analysed
-    # discard the centroids of the small islands that are not reachable from mainland Europe
-    if nuts_class == 'nuts3':
-        overseas = NUTS_3_remote(overseas=True,Creta=True,Spain=True)
-        overseas.extend(NUTS_2_islands())
-        selected_centroids = centroids.loc[(centroids['CNTR_CODE'] == translate_cntr_codes['code2'][cntry]) &
-                                       (~centroids['NUTS_ID'].isin(overseas))]
-
-        if special_setting == 'Flanders':
-            flanders = NUTS_3_Flanders()
-            selected_centroids = selected_centroids.loc[selected_centroids['NUTS_ID'].isin(flanders)]
-
-        elif special_setting == 'Wallonia':
-            wallonia = NUTS_3_Wallonia()
-            selected_centroids = selected_centroids.loc[selected_centroids['NUTS_ID'].isin(wallonia)]
+        if weighing != 'time':
+            logger.warning("Running in non-default mode. The weighing of routes is not done by time, but by '{}'.".format(weighing))
 
 
-    if nuts_class == 'nuts2':
-        overseas = NUTS_2_islands()
-        selected_centroids = centroids.loc[(centroids['CNTR_CODE'] == translate_cntr_codes['code2'][cntry]) &
-                                       (~centroids['NUTS_ID'].isin(overseas))]
-        #print(list(selected_centroids['NUTS_ID'].values))
+        logger.info('Using config file: "{}"'.format(config_file))
 
-    if special_setting == 'Rhine-alpine':
-        selected_centroids = centroids.copy()
+        # define in- and output folders
+        output_folder = config['paths']['preproc_output']
 
-    if special_setting == 'shifted_centroids':
-        selected_centroids = centroids.copy()
+        # Location of graphs of all countries in Europe, saved in *.feather format
+        networks_europe_path = config['paths']['graphs_folder']
+        edge_file = [os.path.join(networks_europe_path, f) for f in os.listdir(networks_europe_path) if
+                     f == cntry + '-edges.feather'][0]
 
-    selected_centroids['geometry'] = selected_centroids['geometry'].apply(pyg.from_wkt)
+        # Get the country codes from the *.feather files (networks) and see with a country code
+        # translation table which countries are there
+        country_codes = config['paths']['data'] / 'country_codes.csv'
+        assert country_codes.exists
+        translate_cntr_codes = pd.read_csv(country_codes, delimiter=';').set_index('code3').to_dict(orient='dict')
 
-    # read the network files (TRAILS output, with the flood information added)
-    network = pd.read_feather(edge_file)
-    # network['geometry'] = network['geometry'].apply(wkt.loads)
+        current_country = translate_cntr_codes['country'][cntry].lower()
+        if current_country.endswith(' '): #Remove space in last character of country name (if any)
+            current_country = current_country[:-1]
+        print("\nCurrent iteration is for:", current_country)
 
-    # create a geometry column with shapely geometries
-    network['geoms'] = pyg.io.to_wkt(pyg.from_wkb(network.geometry))  # see if this should be activated with the new feather files
-    network['geoms'] = network['geoms'].apply(wkt.loads)
-    network.drop('geometry', axis=1, inplace=True)
-    network.rename(columns={'geoms': 'geometry'}, inplace=True)
+        country_dir = output_folder / current_country
+        od_matrix = country_dir / 'optimal_routes_{}_{}.feather'.format(weighing, current_country)
 
-    # optional: filter out tertiary roads
-    # network_geoms = network_geoms.loc[~network_geoms['highway'].isin(['tertiary', 'tertiary_link'])]
+        # create the folder if it does not exist yet
+        if not country_dir.exists() : country_dir.mkdir()
 
-    # create the graph
-    G = graph_load(network, ['geometry', 'id', 'RP100_cells_intersect', 'RP100_max_flood_depth',
-                             'AoI_RP100y_majority', 'AoI_RP100y_unique', 'fds_majority', 'fds__unique'])
+        if od_matrix.exists():
+            logger.warning('Optimal_routes(): Country = {} already finished! Stops function.'.format(current_country))
+            return None
 
-    # read nodes
-    #Todo: this is possible not necessary?
-    nodes = feather.read_dataframe(edge_file.replace("-edges", "-nodes"))
-    nodes.geometry = pyg.from_wkb(nodes.geometry)
+        # The centroids of the NUTS-3/NUTS-2 regions
+        centroids = config['paths']['data'] / 'europe_{}_centroids.feather'.format(nuts_class)
+        if special_setting == 'Benelux':
+            centroids = config['paths']['data'] / 'benelux_nuts3_centroids.feather'
+        elif special_setting == 'Rhine-alpine':
+            centroids = config['paths']['data'] / 'rhine_alphine_ods.feather'
+        elif special_setting == 'shifted_centroids':
+            centroids = config['paths']['data'] / 'belgium_shifted_centroids.feather'
 
-    #Solution: figure out which nodes are closest using the nodes file
+        centroids = pd.read_feather(centroids)
 
+        # select the centroids that are in the country that is analysed
+        # discard the centroids of the small islands that are not reachable from mainland Europe
+        if nuts_class == 'nuts3':
+            overseas = NUTS_3_remote(overseas=True,Creta=True,Spain=True)
+            overseas.extend(NUTS_3_islands())
+            logger.info('Removing the following NUTS-regions {}'.format(
+                [c for c in overseas if c.startswith(translate_cntr_codes['code2'][cntry])]))
+            selected_centroids = centroids.loc[(centroids['CNTR_CODE'] == translate_cntr_codes['code2'][cntry]) &
+                                           (~centroids['NUTS_ID'].isin(overseas))]
 
-    # find the nodes that are closest to the centroids of the NUTS-3 regions
-    node_ids_od_pairs = prepare_possible_OD_EU(selected_centroids, nodes, tolerance=0.5) #was 0.1
-    if len(node_ids_od_pairs) != len(selected_centroids):
-        warnings.warn("Script could not find corresponding node/vertex for all NUTS-regions")
-        missing_nuts = [n for n in list(selected_centroids.NUTS_ID.unique()) if n not in list(zip(*node_ids_od_pairs))[1]]
-        print("NUTS-regions excluded in analysis: {}".format(print(missing_nuts)))
+            if special_setting == 'Flanders':
+                flanders = NUTS_3_Flanders()
+                selected_centroids = selected_centroids.loc[selected_centroids['NUTS_ID'].isin(flanders)]
 
-    #Save the results as a json-file
-    ids_to_nuts = dict([(nuts, id.item()) for (id, nuts) in node_ids_od_pairs]) #keys: nuts-code; value = vertex id in the graph
-    outfile = country_dir / (cntry + '_' + nuts_class + '__vertexID_to_nuts.json')
-    with open(outfile, 'w') as f:
-        json.dump(ids_to_nuts, f)
-
-    #Temporary fix: add the nuts-number to the matching node ids
-    for n_id, nuts_code in node_ids_od_pairs:
-        nodes.loc[nodes['id'] == n_id, nuts_class] = nuts_code  # Can be nuts2 or nuts3
-
-    assert len(G.vs) == len(nodes)
-    G.vs['id'] = nodes['id']
-    G.vs[nuts_class] = nodes[nuts_class]
-    #Check if the number of vertices with nuts-data matched the number of centroids
-    assert len([v for v in G.vs if not pd.isna(v[nuts_class])]) == len(selected_centroids)
+            elif special_setting == 'Wallonia':
+                wallonia = NUTS_3_Wallonia()
+                selected_centroids = selected_centroids.loc[selected_centroids['NUTS_ID'].isin(wallonia)]
 
 
-    #Not sure if this part is still needed
-    nodes.geometry = pyg.to_wkb(nodes.geometry)
-    nodes.to_feather(edge_file.replace("-edges", "-nodes_{}".format(nuts_class)))
-
-    # save the list of combinations that should be ran in the excel sheet that is also used to check whether
-    # the number of optimal routes is correct
-    all_aois = list(set([int(x) for l in list(network['AoI_RP100y_unique']) for x in l if (x != 0) and (x == x)]))
-    max_aoi = len(all_aois)
-
-    list_combinations = new_list_combinations(max_aoi)
-
-    #Todo: make sure it does not add empty columns
-    combinations_csv = config['paths']['data'] / "{}_combinations.csv".format(nuts_class)
-    df = pd.read_csv(combinations_csv,sep=';',index_col=0)
-    nr_optimal_routes = df.loc[df['code3'] == cntry, 'nr_routes'].iloc[0]
-    df.loc[df['code3'] == cntry, 'aoi_combinations'] = " ".join(list_combinations)
-    df.to_csv(combinations_csv,sep=';')
-
-    # dataframe to save the optimal routes
-    pref_routes = gpd.GeoDataFrame(columns=['o_node', 'd_node', 'origin', 'destination', 'AoIs',
-                                            'v_ids', weighing, 'e_ids', 'geometry'],
-                                   geometry='geometry', crs='epsg:3035')
 
 
-    # create the routes between all OD pairs
-    for o, d in tqdm(itertools.combinations(node_ids_od_pairs, 2), desc='NUTS optimal routes {}'.format(current_country)):
-        # calculate the length of the optimal route
-        # now the graph is treated as directed, make mode=ig.ALL to treat as undirected
+        if nuts_class == 'nuts2':
+            overseas = NUTS_2_islands()
+            selected_centroids = centroids.loc[(centroids['CNTR_CODE'] == translate_cntr_codes['code2'][cntry]) &
+                                           (~centroids['NUTS_ID'].isin(overseas))]
+            #print(list(selected_centroids['NUTS_ID'].values))
 
-        if G.degree(o[0]) == 0:
-            raise ValueError('Origin node/vertex {} has degree 0, meaning that it is not connected to the graph'.format(o))
-        if G.degree(d[0]) == 0:
-            raise ValueError('Destination node/vertex {} has degree 0, meaning that it is not connected to the graph'.format(d))
+        if special_setting == 'Rhine-alpine':
+            selected_centroids = centroids.copy()
+
+        if special_setting == 'shifted_centroids':
+            selected_centroids = centroids.copy()
+
+        logger.info('{} selected centroids for OD-routing: \n {}'.format(
+            len(selected_centroids),selected_centroids["NUTS_ID"].values))
+
+        selected_centroids['geometry'] = selected_centroids['geometry'].apply(pyg.from_wkt)
+
+        # read the network files (TRAILS output, with the flood information added)
+        network = pd.read_feather(edge_file)
+        # network['geometry'] = network['geometry'].apply(wkt.loads)
+
+        # create a geometry column with shapely geometries
+        network['geoms'] = pyg.io.to_wkt(pyg.from_wkb(network.geometry))  # see if this should be activated with the new feather files
+        network['geoms'] = network['geoms'].apply(wkt.loads)
+        network.drop('geometry', axis=1, inplace=True)
+        network.rename(columns={'geoms': 'geometry'}, inplace=True)
+
+        # optional: filter out tertiary roads
+        # network_geoms = network_geoms.loc[~network_geoms['highway'].isin(['tertiary', 'tertiary_link'])]
+
+        # create the graph
+        G = graph_load(network, ['geometry', 'id', 'RP100_cells_intersect', 'RP100_max_flood_depth',
+                                 'AoI_RP100y_majority', 'AoI_RP100y_unique', 'fds_majority', 'fds__unique'])
+
+        # read nodes
+        #Todo: this is possible not necessary?
+        nodes = feather.read_dataframe(edge_file.replace("-edges", "-nodes"))
+        nodes.geometry = pyg.from_wkb(nodes.geometry)
+
+        # find the nodes that are closest to the centroids of the NUTS-3 regions
+        node_ids_od_pairs = prepare_possible_OD_EU(selected_centroids, nodes, tolerance=0.5) #was 0.1
+        if len(node_ids_od_pairs) != len(selected_centroids):
+            logger.warning("Script could not find corresponding node/vertex for all NUTS-regions")
+            missing_nuts = [n for n in list(selected_centroids.NUTS_ID.unique()) if n not in list(zip(*node_ids_od_pairs))[1]]
+            logger.warning("NUTS-regions excluded in analysis: {}".format(print(missing_nuts)))
+
+        #Save the results as a json-file
+        ids_to_nuts = dict([(nuts, id.item()) for (id, nuts) in node_ids_od_pairs]) #keys: nuts-code; value = vertex id in the graph
+        outfile = country_dir / (cntry + '_' + nuts_class + '__vertexID_to_nuts.json')
+        with open(outfile, 'w') as f:
+            json.dump(ids_to_nuts, f)
+        logger.info('Save lookup table from vertex/nodeID to nuts as json file in: {}'.format(outfile))
+
+        #Temporary fix: add the nuts-number to the matching node ids
+        for n_id, nuts_code in node_ids_od_pairs:
+            nodes.loc[nodes['id'] == n_id, nuts_class] = nuts_code  # Can be nuts2 or nuts3
 
 
-        #This way of calculating the routes is much less efficient
-        optimal_route = G.shortest_paths_dijkstra(source=o[0], target=d[0], mode=ig.OUT, weights=weighing)
+        #Todo: many countries (e.g. Belgium, Austria fail because of this Exception. Apparantely, these have non-
+        #Todo: non-matching edges and nodes files....
+        if not len(G.vs) == len(nodes):
+            raise Exception("""Size of the vertex sequence {} (constructed from edges.feather) does
+                                   not match the size of the nodes file!!! {}""".format(len(G.vs),len(nodes)))
+        G.vs['id'] = nodes['id']
+        G.vs[nuts_class] = nodes[nuts_class]
+        #Check if the number of vertices with nuts-data matched the number of centroids
+        assert len([v for v in G.vs if not pd.isna(v[nuts_class])]) == len(selected_centroids)
 
-        # Get the nodes and edges of the shortest path.
-        # Its not very clear from documentation but if I'm correct this function also uses Dijkstra's algorithm
-        # Comparing the outcomes of the shortest_paths_dijkstra and the weighing of the edges that are taken in the route,
-        # are different in the far decimal numbers, but when rounding they are the same.
 
-        path_nodes = G.get_shortest_paths(o[0], to=d[0], weights=weighing, mode=ig.OUT, output="vpath")
-        path_edges = G.get_shortest_paths(o[0], to=d[0], weights=weighing, mode=ig.OUT, output="epath")
+        #Not sure if this part is still needed
+        nodes.geometry = pyg.to_wkb(nodes.geometry)
+        nodes.to_feather(edge_file.replace("-edges", "-nodes_{}".format(nuts_class)))
 
-        aoi_list = 0
-        # Create a list of AoI's the route crosses
-        if 'AoI_RP100y_unique (e)' in G.summary():
-            # remove al 0's and nan's from the AoI list
-            aoi_list = list(set([int(x) for l in G.es[path_edges[0]]['AoI_RP100y_unique'] for x in l if (x != 0) and (x == x)]))
+        # save the list of combinations that should be ran in the excel sheet that is also used to check whether
+        # the number of optimal routes is correct
+        all_aois = list(set([int(x) for l in list(network['AoI_RP100y_unique']) for x in l if (x != 0) and (x == x)]))
+        max_aoi = len(all_aois)
 
-        if 'geometry (e)' in G.summary():
-            edges_geoms = MultiLineString(G.es[path_edges[0]]['geometry'])
+        list_combinations = new_list_combinations(max_aoi)
 
-        if 'id (v)' in G.summary():
-            path_nodes_ids = G.vs[path_nodes[0]]['id']
+        #Todo: make sure it does not add empty columns
+        combinations_csv = config['paths']['data'] / "{}_combinations.csv".format(nuts_class)
+        df = pd.read_csv(combinations_csv,sep=';',index_col=0)
+        nr_optimal_routes = df.loc[df['code3'] == cntry, 'nr_routes'].iloc[0]
+        df.loc[df['code3'] == cntry, 'aoi_combinations'] = " ".join(list_combinations)
+        df.to_csv(combinations_csv,sep=';')
 
-        if 'id (e)' in G.summary():
-            path_edges_ids = G.es[path_edges[0]]['id']
+        # dataframe to save the optimal routes
+        pref_routes = gpd.GeoDataFrame(columns=['o_node', 'd_node', 'origin', 'destination', 'AoIs',
+                                                'v_ids', weighing, 'e_ids', 'geometry'],
+                                       geometry='geometry', crs='epsg:3035')
 
-        pref_routes = pref_routes.append({'o_node': o[0], 'd_node': d[0], 'origin': o[1],
-                                          'destination': d[1], 'AoIs': aoi_list, 'v_ids': path_nodes_ids,
-                                          weighing: optimal_route[0][0], 'e_ids': path_edges_ids,
-                                          'geometry': edges_geoms}, ignore_index=True)
 
-    if len(pref_routes.index) != nr_optimal_routes:
-        warnings.warn("Warning. The number of preferred routes does not match with the number set in the {}. Check for country {}".format(combinations_csv,cntry))
+        # create the routes between all OD pairs
+        for o, d in tqdm(itertools.combinations(node_ids_od_pairs, 2), desc='NUTS optimal routes {}'.format(current_country)):
+            # calculate the length of the optimal route
+            # now the graph is treated as directed, make mode=ig.ALL to treat as undirected
 
-    # remove impossible routes (with time = inf)
-    pref_routes = pref_routes.replace([np.inf, -np.inf], np.nan).dropna(subset=[weighing])
+            if G.degree(o[0]) == 0:
+                raise ValueError('Origin node/vertex {} has degree 0, meaning that it is not connected to the graph'.format(o))
+            if G.degree(d[0]) == 0:
+                raise ValueError('Destination node/vertex {} has degree 0, meaning that it is not connected to the graph'.format(d))
 
-    # Save optimal routes as shapefile
-    # Probably, sometimes it cannot be saved as a shapefile is the route is too long or whatsoever.
-    gdf_to_shp(pref_routes, (country_dir / 'optimal_routes_{}_{}.shp'.format(weighing, current_country)))
-    print("Optimal routes of {} saved to {}".format(current_country,
-                            (country_dir / 'optimal_routes_{}_{}.shp'.format(weighing, current_country))))
-    pref_routes.to_pickle( (country_dir / 'optimal_routes_{}_{}.pickle'.format(weighing, current_country)))
 
-    # Save optimal routes as feather to load quickly in the percolation_optimized.py
-    pref_routes_df = pd.DataFrame(pref_routes[['o_node', 'd_node', 'origin', 'destination', 'v_ids', weighing, 'e_ids']])
-    pref_routes_df.to_feather(od_matrix)
+            #This way of calculating the routes is much less efficient
+            optimal_route = G.shortest_paths_dijkstra(source=o[0], target=d[0], mode=ig.OUT, weights=weighing)
 
-    # Save the edges and nodes of the graph
-    # gdf_to_shp(gpd.GeoDataFrame(nodes, geometry='geometry', crs='epsg:4326'),
-    #            os.path.join(output_folder.format(current_country), 'nodes_{}.shp'.format(current_country)))
-    # gdf_to_shp(gpd.GeoDataFrame(network, geometry='geometry', crs='epsg:3035'),
-    #            os.path.join(output_folder.format(current_country), 'edges_{}.shp'.format(current_country)))
-    #except KeyError as e:
-    #    print(current_country, 'is not an EU memberstate.', e)
+            # Get the nodes and edges of the shortest path.
+            # Its not very clear from documentation but if I'm correct this function also uses Dijkstra's algorithm
+            # Comparing the outcomes of the shortest_paths_dijkstra and the weighing of the edges that are taken in the route,
+            # are different in the far decimal numbers, but when rounding they are the same.
+
+            path_nodes = G.get_shortest_paths(o[0], to=d[0], weights=weighing, mode=ig.OUT, output="vpath")
+            path_edges = G.get_shortest_paths(o[0], to=d[0], weights=weighing, mode=ig.OUT, output="epath")
+
+            aoi_list = 0
+            # Create a list of AoI's the route crosses
+            if 'AoI_RP100y_unique (e)' in G.summary():
+                # remove al 0's and nan's from the AoI list
+                aoi_list = list(set([int(x) for l in G.es[path_edges[0]]['AoI_RP100y_unique'] for x in l if (x != 0) and (x == x)]))
+
+            if 'geometry (e)' in G.summary():
+                edges_geoms = MultiLineString(G.es[path_edges[0]]['geometry'])
+
+            if 'id (v)' in G.summary():
+                path_nodes_ids = G.vs[path_nodes[0]]['id']
+
+            if 'id (e)' in G.summary():
+                path_edges_ids = G.es[path_edges[0]]['id']
+
+            pref_routes = pref_routes.append({'o_node': o[0], 'd_node': d[0], 'origin': o[1],
+                                              'destination': d[1], 'AoIs': aoi_list, 'v_ids': path_nodes_ids,
+                                              weighing: optimal_route[0][0], 'e_ids': path_edges_ids,
+                                              'geometry': edges_geoms}, ignore_index=True)
+
+        if len(pref_routes.index) != nr_optimal_routes:
+            logger.warning("Warning. The number of preferred routes does not match with the \
+                           number set in the {}. Check for country {}".format(combinations_csv,cntry))
+
+        # remove impossible routes (with time = inf)
+        pref_routes = pref_routes.replace([np.inf, -np.inf], np.nan).dropna(subset=[weighing])
+
+        # Save optimal routes as shapefile
+        # Probably, sometimes it cannot be saved as a shapefile is the route is too long or whatsoever.
+        gdf_to_shp(pref_routes, (country_dir / 'optimal_routes_{}_{}.shp'.format(weighing, current_country)))
+        print("Optimal routes of {} saved to {}".format(current_country,
+                                (country_dir / 'optimal_routes_{}_{}.shp'.format(weighing, current_country))))
+        pref_routes.to_pickle( (country_dir / 'optimal_routes_{}_{}.pickle'.format(weighing, current_country)))
+
+        # Save optimal routes as feather to load quickly in the percolation_optimized.py
+        pref_routes_df = pd.DataFrame(pref_routes[['o_node', 'd_node', 'origin', 'destination', 'v_ids', weighing, 'e_ids']])
+        pref_routes_df.to_feather(od_matrix)
+
+        # Save the edges and nodes of the graph
+        # gdf_to_shp(gpd.GeoDataFrame(nodes, geometry='geometry', crs='epsg:4326'),
+        #            os.path.join(output_folder.format(current_country), 'nodes_{}.shp'.format(current_country)))
+        # gdf_to_shp(gpd.GeoDataFrame(network, geometry='geometry', crs='epsg:3035'),
+        #            os.path.join(output_folder.format(current_country), 'edges_{}.shp'.format(current_country)))
+        #except KeyError as e:
+        #    print(current_country, 'is not an EU memberstate.', e)
+
+    except Exception as Argument:
+        logger.exception(str(Argument))
 
 
 #Test list combinations
@@ -499,23 +546,27 @@ if False: #run this block to do create the centroids file
 
 
 if __name__ == '__main__':
-    # countries = ['ALB', 'AUT', 'BEL', 'BGR', 'CHE', 'CZE', 'DEU', 'DNK', 'ESP', 'FIN', 'FRA', 'GBR', 'GIB', 'GRC',
-    #              'HRV', 'HUN', 'IRL', 'ITA', 'LUX', 'NLD', 'NOR', 'POL', 'PRT', 'ROU', 'SRB', 'SVK', 'SWE']
+    #countries = ['ALB', 'AUT', 'BEL', 'BGR', 'CHE', 'CZE', 'DEU', 'DNK', 'ESP', 'FIN', 'FRA', 'GBR', 'GIB', 'GRC',
+    #             'HRV', 'HUN', 'IRL', 'ITA', 'LUX', 'NLD', 'NOR', 'POL', 'PRT', 'ROU', 'SRB', 'SVK', 'SWE']
 
     #countries = ['EST', 'LTU', 'LVA', 'MKD','SVN','SWE','DNK']
 
-    #countries = ['GBR']
+    countries = ['NLD']
 
     from random import shuffle
-    #shuffle(countries)
-    #print(countries)
+    shuffle(countries)
+    print(countries)
 
     #Single run
-    optimal_routes('HUN',nuts_class='nuts3',weighing='time',config_file='config.json',special_setting=None)
+    optimal_routes(countries[0],nuts_class='nuts2',weighing='time',config_file='config.json',special_setting=None)
 
     #Multiple runs (sequential)
-    #for country in countries:
-    #    optimal_routes(country)
+
+    # for country in countries:
+    #     try:
+    #         optimal_routes(country)
+    #     except Exception as e:
+    #         print(country,e)
 
     #Parallel processing
     #with Pool(4) as pool:

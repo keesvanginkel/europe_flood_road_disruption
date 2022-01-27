@@ -344,12 +344,12 @@ def stochastic_network_analysis_phase2(tup):
 
     try:
         #special_setting = 'giant_component' #'depth_threshold', 'giant_component'
-        #depth_threshold = 0. #depth threshold in m.
+        depth_threshold = 0 #depth threshold in m.
         if special_setting is not None:
             extension = ""
             if special_setting == 'depth_threshold':
                 extension = extension + "Threshold: " + str(depth_threshold) + " m"
-            warnings.warn("Stochatistic_network_analysis_phase2() in percolation_optimized_parallel.py " +
+            logger.warning("Stochatistic_network_analysis_phase2() in percolation_optimized_parallel.py " +
                           "runs with special setting {}, {}".format(special_setting,extension))
 
         output_folder = config['paths']['main_output']
@@ -407,9 +407,12 @@ def stochastic_network_analysis_phase2(tup):
             if special_setting == 'depth_threshold':
                 # only remove edges that are inundated above a certain threshold
                 to_remove = [edge for edge in to_remove if edge['RP100_max_flood_depth'] >= depth_threshold]
+                #note: this returns a list, and not an edgesequence!
+                #note: a.indices == [e['id'] for e in to_remove]
 
             # identify the od_optimal_routes that are affected, i.e. they have at least one edge that is to be removed
-            aff = od_optimal_routes['e_ids'].apply(lambda x: common_member(json.loads(x), to_remove.indices))
+            to_remove_indices = [e['id'] for e in to_remove]
+            aff = od_optimal_routes['e_ids'].apply(lambda x: common_member(json.loads(x), to_remove_indices))
             conc = od_optimal_routes[aff]['origin'] + '-' + od_optimal_routes[aff]['destination']
             affected_OD_pairs = list(conc.values)
 
@@ -422,7 +425,9 @@ def stochastic_network_analysis_phase2(tup):
 
 
 
-            if special_setting == 'giant_component':
+            #if special_setting == 'giant_component':
+            #todo: special keyword argument for giant_component yes/no
+            if True:
                 result_gc_path = output_folder / country_name / 'finished_gc'
                 if not result_gc_path.exists():
                     result_gc_path.mkdir(parents=False, exist_ok=True)
@@ -526,7 +531,8 @@ def stochastic_network_analysis_phase2(tup):
                 ['{:.3f}'.format(t) for t in extra_time_per_route[~no_detours_mask]])
 
 
-            if special_setting == 'giant_component':
+            #if special_setting == 'giant_component':
+            if True:
                 gc_start = time.time()
                 # Calculate the metrics for the Giant Component analysis
                 edges_in_graph, nodes_in_graph, edges_in_giant, nodes_in_giant = giant_component_analysis(G,

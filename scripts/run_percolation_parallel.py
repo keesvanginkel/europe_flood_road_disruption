@@ -203,8 +203,10 @@ class RunPercolation:
             #todo: reps constraint
             if run_mode_[0] == 'linear':
                 rootLogger.info('Start looping over {}'.format(ctr))
+                shuffle(folders)
                 for comb in folders:
                     pkls = [pkl for pkl in comb.iterdir() if pkl.suffix == '.pkl']
+                    shuffle(pkls)
                     for pkl in pkls:
                         with open(pkl, 'rb') as f:
                             inTuple = pickle.load(f)
@@ -293,7 +295,7 @@ if __name__ == '__main__':
     print(outputFolder)
 
     running = RunPercolation(cntry_setup=cntrySetup, countries=countries_, reps=reps_,
-                             output_folder=outputFolder,config=config_file,special_setting='giant_component')
+                             output_folder=outputFolder,config=config_file,special_setting='depth_threshold')
 
     #running.prep_par()
     running.run_par(nr_cores=4,run_mode_=run_mode_,route_algorithm_=route_algorithm_)

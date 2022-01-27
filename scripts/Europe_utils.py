@@ -165,7 +165,6 @@ def NUTS_3_islands():
     Returns a list with NUTS-3 regions you probably do not want to include in a road network analysis but still want
     to plot as part of the country (these are not so super remote as the NUTS-3 remote functions)
 
-    Todo: sync with preprocess_routes.py line 42-63 (overseas = [])
     """
     islands = ['FRM01','FRM02'] #Corse
     islands.extend(['UKN06','UKN07','UKN08','UKN09','UKN10','UKN11','UKN12',
