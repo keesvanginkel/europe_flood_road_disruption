@@ -110,7 +110,7 @@ def import_graph(the_country, nuts_class='nuts3',config_file='config.json'):
 
 
 
-def import_optimal_routes(the_country,config_file='config.json'):
+def import_optimal_routes(the_country,nuts_level,config_file='config.json'):
     """
     Load the optimal routes between NUTS-X regions, as calculated during the preprocessing step
         *the_country* (string): Name of the country, should correspond to folder name in preproc_output
@@ -120,7 +120,7 @@ def import_optimal_routes(the_country,config_file='config.json'):
     """
     config = load_config(file=config_file)
     folder = config['paths']['preproc_output']
-    file = folder / the_country / 'optimal_routes_{}_{}.feather'.format(weighing, the_country)
+    file = folder / the_country / 'optimal_routes_{}_{}_{}.feather'.format(weighing, the_country,nuts_level)
     optimal_routes = pd.read_feather(file)
 
     return optimal_routes
@@ -375,7 +375,7 @@ def stochastic_network_analysis_phase2(tup):
 
                         # Import graph and OD matrix of optimal routes
             #G = import_graph(country_code3, nuts_class=nutsClass,config_file=config_file)
-            od_optimal_routes = import_optimal_routes(country_name,config_file=config_file)
+            od_optimal_routes = import_optimal_routes(country_name,nuts_level=nutsClass,config_file=config_file)
 
 
             t1 = time.time()

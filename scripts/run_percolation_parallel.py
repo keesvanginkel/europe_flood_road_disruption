@@ -265,8 +265,8 @@ def make_rootLogger(filename):
 if __name__ == '__main__':
     #RUN THIS FOR REGULAR ANALYSIS AND UNCERTAINTY ANALYSIS
     #countries_ = N0_to_3L(['LT','LV','DK','MK','SI']) #Provide list of 3l-codes
-    countries_ = [N0_to_3L('HU')]
-    nuts_level = 'nuts3'
+    countries_ = [N0_to_3L('NL')]
+    nuts_level = 'nuts2'
     reps_ = 200 #Repetitions per #AoIs
     #Todo: cleanup constrain_reps_
     constrain_reps_ = 20 #Schedule all, but only run these first.

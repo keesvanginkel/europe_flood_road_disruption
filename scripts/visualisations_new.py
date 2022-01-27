@@ -803,7 +803,7 @@ def no_detour_aggregated_lineplot(no_dt_, countries, fill_between=('min', 'max')
 
     return fig, ax
 
-def extra_time_boxplot(df,country,unit='sec',save=False,fig=None, ax=None,**kwargs):
+def extra_time_boxplot(df,country,unit='hr',save=False,fig=None, ax=None,**kwargs):
     """
     Creates boxplot of average (of all detour times) additional detour time per # AoIs
 
@@ -811,7 +811,7 @@ def extra_time_boxplot(df,country,unit='sec',save=False,fig=None, ax=None,**kwar
 
     Arguments:
         *df* (DataFrame) : raw model results
-        *unit* (string) : unit of the results, can be 'sec', 'min' or 'hr'
+        *unit* (string) : unit of the desired output results, can be 'sec', 'min' or 'hr'
         *country* (string) : Country name e.g. 'Albania'
         *save* (boolean) : should the file be saved in the folder config['paths']['output_images']
         *fig,ax* (matplotlib) : fig and ax to add the figure to; make new if not provided
@@ -1037,7 +1037,7 @@ if __name__ == '__main__':
 
     #plotly_plot(df,['Albania','Austria','Belgium'])
 
-    boxplot_one_country(df, 'Hungary',save=True)
+    boxplot_one_country(df, 'Netherlands',save=True)
 
     #Sort countries by nr of AoIs
     max_aoi_comb = df.groupby('country')["AoI combinations"].max().to_dict()
@@ -1053,7 +1053,6 @@ if __name__ == '__main__':
 
     #Group by country area
     #Load second group version
-    print('tot hier')
     import json
     group_file = config['paths']['data'] / 'groups' / '6groupsof6_byactivesize.json'
     with open(group_file, 'rb') as f:
@@ -1079,8 +1078,8 @@ if __name__ == '__main__':
 
     ### PROCESS NO DETOUR RESULTS ###
     no_dt_abs, no_dt_rel = process_no_detour(df)
-    no_detour_boxplot(df, 'Hungary', True)
-    extra_time_boxplot(df, 'Hungary',True)
+    no_detour_boxplot(df, 'Netherlands', True)
+    extra_time_boxplot(df, 'Hungary',unit='min', save=True)
     #Example of no detour results plotting
     #no_detour_aggregated_lineplot(no_dt_rel, ['Germany', 'France'])
     #for countries in groups_version1:

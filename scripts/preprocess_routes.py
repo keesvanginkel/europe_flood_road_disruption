@@ -275,7 +275,7 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',config_file='con
         print("\nCurrent iteration is for:", current_country)
 
         country_dir = output_folder / current_country
-        od_matrix = country_dir / 'optimal_routes_{}_{}.feather'.format(weighing, current_country)
+        od_matrix = country_dir / 'optimal_routes_{}_{}_{}.feather'.format(weighing, current_country,nuts_class)
 
         # create the folder if it does not exist yet
         if not country_dir.exists() : country_dir.mkdir()
@@ -460,10 +460,10 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',config_file='con
 
         # Save optimal routes as shapefile
         # Probably, sometimes it cannot be saved as a shapefile is the route is too long or whatsoever.
-        gdf_to_shp(pref_routes, (country_dir / 'optimal_routes_{}_{}.shp'.format(weighing, current_country)))
+        gdf_to_shp(pref_routes, (country_dir / 'optimal_routes_{}_{}_{}.shp'.format(weighing, current_country,nuts_class)))
         print("Optimal routes of {} saved to {}".format(current_country,
-                                (country_dir / 'optimal_routes_{}_{}.shp'.format(weighing, current_country))))
-        pref_routes.to_pickle( (country_dir / 'optimal_routes_{}_{}.pickle'.format(weighing, current_country)))
+                                (country_dir / 'optimal_routes_{}_{}_{}.shp'.format(weighing, current_country,nuts_class))))
+        pref_routes.to_pickle( (country_dir / 'optimal_routes_{}_{}_{}.pickle'.format(weighing, current_country,nuts_class)))
 
         # Save optimal routes as feather to load quickly in the percolation_optimized.py
         pref_routes_df = pd.DataFrame(pref_routes[['o_node', 'd_node', 'origin', 'destination', 'v_ids', weighing, 'e_ids']])
