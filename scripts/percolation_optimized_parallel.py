@@ -45,8 +45,8 @@ translate_cntr_codes = pd.read_csv(country_codes, delimiter=';').set_index('code
 
 # parameters
 AoI_name = 'AoI_RP100y_unique' #Todo: move these settings to config
-weighing = 'time'  # time or distance #Todo: move these settings to config
-#weighing = 'distance'
+#weighing = 'time'  # time or distance #Todo: move these settings to config
+weighing = 'distance'
 
 # import files
 def import_graph(the_country, nuts_class='nuts3',config_file='config.json'):
@@ -105,6 +105,8 @@ def import_graph(the_country, nuts_class='nuts3',config_file='config.json'):
         set_values[value] = key
     G.vs[nuts_class] = set_values
 
+    #Todo: checken of dit wel goed gaat!
+
     #print(G.summary())
     return G
 
@@ -151,8 +153,8 @@ def aoi_combinations(all_aois_list, nr_comb, nr_iterations):
 
     ncr =  comb(len(all_aois_list),nr_comb)
     if ncr <= nr_iterations:
-        warnings.warn("Can only draw {} combinations from {} aois, while {} were requested".format(
-                ncr,len(all_aois_list),nr_iterations))
+        warnings.warn("Can only draw {} combinations with subsequence length {} from {} aois, while {} were requested".format(
+                ncr,nr_comb,len(all_aois_list),nr_iterations))
         nr_iterations = ncr #Limit the nr of subsequences to the maximum theoretical possible #Todo check if our approach always finds these
 
     result = []
@@ -451,34 +453,35 @@ def stochastic_network_analysis_phase2(tup):
 
             x = od_optimal_routes[aff][['o_node', 'd_node']]
 
-            ### FIRST APPROACH TO ROUTE CALCULATION (USED IN THE VERSION 1.0 RELEASE) ###
+
 
             assert len(affected_OD_pairs) == aff.sum()
             logger.info('{} affected routes'.format(len(affected_OD_pairs)))
 
+            ### FIRST APPROACH TO ROUTE CALCULATION (USED IN THE VERSION 1.0 RELEASE) ###
             if route_algorithm_ == 'version_1':
-                new_routes = calculate_shortest_paths_dijkstra(G, [int(v) for v in x['o_node']],
-                                                            [int(v) for v in x['d_node']])
 
-                old_times = od_optimal_routes[aff]['time']
+                new_routes = calculate_shortest_paths_dijkstra(G, [int(v) for v in x['o_node']],
+                                                            [int(v) for v in x['d_node']],weighing=weighing)
+
+                old_times = od_optimal_routes[aff][weighing]
                 new_times = pd.Series(index=old_times.index,data=new_routes)
 
                 ###########################################
                 t4 = time.time()
                 logger.info('t3-t4: {} sec passed for calculating new routes, used algorithm 1'.format(t4 - t3))
 
-            elif route_algorithm_ == 'version_2':
+
             ### SECOND APPROACH TO ROUTE CALCULATION  ###
+            elif route_algorithm_ == 'version_2':
                 y_sel = calculate_shortest_paths_matrix(G, x,weighing=weighing)
                 #Todo: weird variable name 'new routes', confusing compared to implementation of other algs.
-                new_routes = od_optimal_routes[aff][['o_node', 'd_node', 'origin', 'destination', 'time']]
+                new_routes = od_optimal_routes[aff][['o_node', 'd_node', 'origin', 'destination', weighing]]
                 d = y_sel.unstack(-1).loc[[(row,col) for col, row in zip(new_routes.o_node, new_routes.d_node)]].reset_index()
                 #new_routes['new_time'] = None
                 # Make sure that the lists are not shuffled
                 assert list(zip(d.o_node, d.d_node)) == list(zip(new_routes.o_node, new_routes.d_node))
-                #new_routes['new_time'] = d[0].values
-
-                old_times = od_optimal_routes[aff]['time']
+                old_times = od_optimal_routes[aff][weighing]
                 new_times = pd.Series(index=old_times.index, data=d[0].values)
                 assert len(old_times) == len(new_times)
 
@@ -486,13 +489,14 @@ def stochastic_network_analysis_phase2(tup):
                 logger.info('t3-t4: {} sec passed for calculating new routes, used  algorithm 2'.format(t4 - t3))
 
 
-            ### THIRD APPROACH TO ROUTE CALCULATION  ###
+            ### THIRD APPROACH TO ROUTE CALCULATION - Elco's TRAILS version  ###
             elif route_algorithm_ == 'version_3':
                 check_duplicates(x) #A duplicate if: OD-pair also exists as DO-pair
                 #so far, there seem to be no duplicates in x, so no need to handle these
-                new_routes = calculate_shortest_paths_speedup(G, [int(v) for v in x['o_node']], [int(v) for v in x['d_node']])
+                new_routes = calculate_shortest_paths_speedup(G, [int(v) for v in x['o_node']],
+                                                              [int(v) for v in x['d_node']], weighing=weighing)
 
-                old_times = od_optimal_routes[aff]['time']
+                old_times = od_optimal_routes[aff][weighing]
                 new_times = pd.Series(index=old_times.index, data=new_routes)
                 t4 = time.time()
                 logger.info('t3-t4: {} sec passed for calculating new routes, used  algorithm 3'.format(t4 - t3))
@@ -515,7 +519,7 @@ def stochastic_network_analysis_phase2(tup):
 
             extra_time_per_route = new_times - old_times
 
-            ### Handle function output
+            ### PREPARE PERCOLATIO OUTPUT
             ser.at['AoI combinations'] = nr_comb
             ser.at['experiment'] = ser.name
             ser.at['disrupted'] = len(affected_OD_pairs) / tot_routes * 100
@@ -546,8 +550,7 @@ def stochastic_network_analysis_phase2(tup):
                 gc_end = time.time()
                 logger.info('gc_start - gc end: {} sec for counting giant component edges'.format(gc_end - gc_start))
 
-            # this gives a transposed output compared to version 1, not very handy for backward compat.
-            # ser.to_csv((result_path / '{}.csv'.format(i)),sep=';',index=True,header=False)
+            # transpose output for backward compat. with version 1.0
             pd.DataFrame(ser).T.to_csv((result_path / '{}.csv'.format(i)), sep=';', header=True, index=False)
 
 
