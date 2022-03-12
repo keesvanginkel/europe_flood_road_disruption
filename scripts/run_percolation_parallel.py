@@ -1,20 +1,21 @@
+import igraph as ig
+import json
+import logging
+import os, sys
 import pandas as pd
 from pathos.multiprocessing import Pool
-import os, sys
 from random import shuffle
 import pickle
-import json
 from pathlib import Path
-
-import time
-import logging
 import random
+from tqdm import tqdm
+import time
 
 from percolation_optimized_parallel import stochastic_network_analysis_phase1, stochastic_network_analysis_phase2
 from percolation_optimized_parallel import import_graph, stochastic_network_analysis_phase1_event_sampling
 from utils import load_config
 from Europe_utils import *
-from tqdm import tqdm
+
 
 class RunPercolation:
     def __init__(self, cntry_setup, countries, reps, output_folder,config='config.json',special_setting=None):
@@ -54,6 +55,8 @@ class RunPercolation:
         print('prep_par(), preparing pickles for parallel processing for ',len(self.countries), 'countries')
         for ctr in self.countries:
             combinations = [int(x) for x in self.cntry_setup.loc[self.cntry_setup['code3'] == ctr, 'aoi_combinations'].iloc[0].split(' ')]
+            combinations = [c for c in combinations if c != 0]
+            #todo: make sure that in preprocessing returning c = 0 no longer happens!
             if ctr in ['DEU', 'NLD','ITA','GBR']: #'BEL',
                 # For Belgium, Germany and the Netherlands, Italy and UK we are using the NUTS-2 classification
                 #... but for Belgium not in the uncertainty analysis :)
@@ -62,7 +65,11 @@ class RunPercolation:
                 # For the other countries we use the NUTS-3 classification
                 nuts_class = 'nuts3'
 
-            G = import_graph(ctr, nuts_class=nuts_class,config_file=self.config)
+            #todo: this can be made even faster by directly loading the pickled graph (from version 1.1 onwards)
+            #G = import_graph(ctr, nuts_class=nuts_class,config_file=self.config)
+            country_name = country_names(ctr).lower()
+            graph_pickle = config['paths']['preproc_output'] / country_name / (country_name + '_G.pkl')
+            G = ig.Graph.Read_Pickle(graph_pickle)
             for com in combinations:
                 #Todo: also give special settings to this function
                 stochastic_network_analysis_phase1(self.config,G, com, self.reps, ctr, nuts_class)
@@ -156,11 +163,10 @@ class RunPercolation:
             # optimisation (version > 1.0): load graph at this stage, and give it to workers
             country_code3 = country_code_from_name(ctr,l3=True)
 
-            #todo: still loading the old, depreciated version of the graph (issue #nodes)
-            G = import_graph(country_code3, nuts_class=nutsClass, config_file=config_file)
-            #Check if all the workers have the correct number of edges and nodes in the original graph
-            #Todo built this check
-            #Todo: neatly take notes of all the values here
+            graph_pickle = config['paths']['preproc_output'] / ctr / (ctr + '_G.pkl')
+            G = ig.Graph.Read_Pickle(graph_pickle)
+            #Depreciated from version > 1.0
+            #G = import_graph(country_code3, nuts_class=nutsClass, config_file=config_file)
             check_n_es = len(G.es)
             check_n_vs = len(G.vs)
             rootLogger.info('Reference nr edges|vertices original graph: {} | {}'.format(check_n_es,check_n_vs))
@@ -265,8 +271,19 @@ def make_rootLogger(filename):
 if __name__ == '__main__':
     #RUN THIS FOR REGULAR ANALYSIS AND UNCERTAINTY ANALYSIS
     #countries_ = N0_to_3L(['LT','LV','DK','MK','SI']) #Provide list of 3l-codes
-    countries_ = [N0_to_3L('NL')]
-    nuts_level = 'nuts2'
+    #countries_ = ['ALB', 'AUT', 'BGR', 'CHE', 'CZE', 'DNK', 'EST','ESP', 'FIN']
+
+    #countries_ = ['FIN', 'FRA', 'GRC',
+    #'HRV', 'HUN', 'IRL', 'LTU', 'LVA', 'MKD',  'POL', 'PRT', 'ROU', 'SRB', 'SVK', 'SVN', 'SWE'] #'NOR'
+    #countries_ = ['BEL','NLD','GBR','ITA','DEU'] #NUTS-2 countries
+
+
+
+    countries_ = ['BEL']
+    #shuffle(countries_)
+
+
+    nuts_level = 'nuts3'
     reps_ = 200 #Repetitions per #AoIs
     #Todo: cleanup constrain_reps_
     constrain_reps_ = 20 #Schedule all, but only run these first.
@@ -276,10 +293,10 @@ if __name__ == '__main__':
     #run_mode_ = ('parallel',)
 
     #Select algorithm to run model:
-    route_algorithm_ = ('version_3')
+    route_algorithm_ = ('version_2')
 
     #Read the set-up per country
-    config_file = 'config.json'
+    config_file = 'config_sens.json'
     config = load_config(file=config_file)
     #Run a small test to check if all the paths are well configured:
     for key, path in config['paths'].items():
@@ -299,12 +316,4 @@ if __name__ == '__main__':
 
     #running.prep_par()
     running.run_par(nr_cores=4,run_mode_=run_mode_,route_algorithm_=route_algorithm_)
-
-    # if sys.argv[1] == 'prep_par':
-    #     running.prep_par()
-    # elif sys.argv[1] == 'run_par':
-    #     print("Using", sys.argv[2], "cores")
-    #     running.run_par(sys.argv[2])
-    # else:
-    #     print("wrong input, use 'prep_par' or 'run_par (nr of cores)'")
 

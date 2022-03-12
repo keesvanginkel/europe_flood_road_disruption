@@ -45,8 +45,8 @@ translate_cntr_codes = pd.read_csv(country_codes, delimiter=';').set_index('code
 
 # parameters
 AoI_name = 'AoI_RP100y_unique' #Todo: move these settings to config
-#weighing = 'time'  # time or distance #Todo: move these settings to config
-weighing = 'distance'
+weighing = 'time'  # time or distance #Todo: move these settings to config
+#weighing = 'distance'
 
 # import files
 def import_graph(the_country, nuts_class='nuts3',config_file='config.json'):
@@ -408,7 +408,7 @@ def stochastic_network_analysis_phase2(tup):
             # Iterate over edges that are planned to be removed based on their AoI info, to do further filtering
             if special_setting == 'depth_threshold':
                 # only remove edges that are inundated above a certain threshold
-                to_remove = [edge for edge in to_remove if edge['RP100_max_flood_depth'] >= depth_threshold]
+                to_remove = [edge for edge in to_remove if edge['RP100_max_flood_depth'] >= depth_threshold] #was >= op 7/3/2022
                 #note: this returns a list, and not an edgesequence!
                 #note: a.indices == [e['id'] for e in to_remove]
 
