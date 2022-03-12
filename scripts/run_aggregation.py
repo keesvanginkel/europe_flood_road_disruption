@@ -3,9 +3,9 @@
 import visualisations_new as vis
 from utils import load_config
 
-config = load_config(file='config.json')
+config = load_config(file='config_sens.json')
 
-
-#vis.aggregate_results_step1(select=['hungary','netherlands'],config=config) #to .csv per # combinations
-vis.aggregate_results_step2(select=['hungary','netherlands'],config=config)
+select = ['belgium_waterdepth_50cm']
+#vis.aggregate_results_step1(select=select,config=config) #to .csv per # combinations
+vis.aggregate_results_step2(select='all',config=config)
 
