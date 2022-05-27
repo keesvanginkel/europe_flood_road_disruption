@@ -76,53 +76,6 @@ class RunPercolation:
 
         print('Preparing pickles finished for:',ctr)
 
-    def prep_par_event_sampling(self,nuts_class = 'nuts3',sampling_json='entire_basin_sampling.json'):
-        """
-        Scheduler for preparing experiments from a timeseries of flood events,
-
-        Used for Germany, guided sampling
-
-        Arguments:
-            *nuts_class* (string) : NUTS-level for running analysis, can be 'nuts3' or 'nuts2'
-            *self.countries* (list of strings) : List of 3-letter codes of the countries to analyse e.g. ['BEL']
-            *sampling_json* (string) : filename of the json file containing the aoi's per year
-                                        (this .json file is made with visualisations/GFZ_JRC_datanew.ipynb)
-
-        """
-
-        ####### DEPRECIATED ######
-
-        warnings.warn("""This version of the event sampling is depreciated, look into version 02 instead!!!""")
-
-        assert nuts_class in ['nuts2','nuts3']
-        if len(self.countries) > 1:
-            warnings.warn("""This script is only suitable for running for one country at a time, 
-                             will only run one country: {}""".format(self.countries[0]))
-
-        #Open undisrupted network graph
-        print('running.prep_par_event_sampling(): Start loading graph')
-        #G = import_graph(self.countries[0], nuts_class=nuts_class, config_file=self.config)
-        print('graph loaded')
-
-        #Open json file that contains sampling procedure
-        config = load_config(self.config)
-        country_name = self.countries[0] # todo
-        out_foldername =  country_name + nuts_class + '__sampling__'
-
-        json_path = config['paths']['data'] / 'sampling_data' / sampling_json
-        with open(json_path, 'r') as f:
-            sampling_set = json.load(f)
-
-        print('stop')
-        for year in tqdm(sampling_set['data'].keys()):
-            data = sampling_set['data'][year]
-            #data['ds'] # *ds*     : discharge station at which floods occur
-            #data['b_aoi'] # *b_aoi*  : basin aoi corresponding to discharge station
-            #data['c_aoi'] # *c_aoi*  : all cell aois in this basin'
-            stochastic_network_analysis_phase1_event_sampling(config_file,country_name, nuts_class,year,data)
-
-
-
     def run_par(self, nr_cores,run_mode_,route_algorithm_):
         """"
         Todo: improve docstring

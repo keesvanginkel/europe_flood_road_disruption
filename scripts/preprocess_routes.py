@@ -300,6 +300,55 @@ def report_conflict(id,already_saved_geom,conflicting_geom,logger=None):
         warnings.warn(warning)
     return warning
 
+#Used for Germany event-based-sampling complete graph load (12/3/2022)
+event_based_cols = ['osm_id',
+     'geometry',
+     'highway',
+     'oneway',
+     'lanes',
+     'maxspeed',
+     'id',
+     'distance',
+     'time',
+     'RP020_cells_intersect',
+     'RP020_min_flood_depth',
+     'RP020_max_flood_depth',
+     'RP020_mean_flood_depth',
+     'RP500_cells_intersect',
+     'RP500_min_flood_depth',
+     'RP500_max_flood_depth',
+     'RP500_mean_flood_depth',
+     'RP200_cells_intersect',
+     'RP200_min_flood_depth',
+     'RP200_max_flood_depth',
+     'RP200_mean_flood_depth',
+     'RP050_cells_intersect',
+     'RP050_min_flood_depth',
+     'RP050_max_flood_depth',
+     'RP050_mean_flood_depth',
+     'RP010_cells_intersect',
+     'RP010_min_flood_depth',
+     'RP010_max_flood_depth',
+     'RP010_mean_flood_depth',
+     'RP100_cells_intersect',
+     'RP100_min_flood_depth',
+     'RP100_max_flood_depth',
+     'RP100_mean_flood_depth',
+     'AoI_RP500y_majority',
+     'AoI_RP500y_unique',
+     'AoI_RP50y_majority',
+     'AoI_RP50y_unique',
+     'AoI_RP100y_majority',
+     'AoI_RP100y_unique',
+     'AoI_RP200y_majority',
+     'AoI_RP200y_unique',
+     'AoI_RP20y_majority',
+     'AoI_RP20y_unique',
+     'AoI_RP10y_majority',
+     'AoI_RP10y_unique',
+     'fds_majority',
+     'fds__unique']
+
 
 
 
@@ -311,7 +360,8 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',config_file='con
      *cntry* (string) : 3-letter code of the country
      *nuts_class* (string) : 'nuts2' or 'nuts3' (default)
      *weighing* (string) : 'time' (or distance?)
-     *special_settig* (string) : 'Flanders', 'Wallonia', 'Benelux', 'Rhine-alpine', 'shifted_centroids', None (default)
+     *special_setting* (string) : 'Flanders', 'Wallonia', 'Benelux', 'Rhine-alpine', 'shifted_centroids',
+                                  'DEU_event_vs3', None (default)
         Used for running the script with other than default settings
 
     :return:
@@ -432,7 +482,10 @@ def optimal_routes(cntry,nuts_class = 'nuts3',weighing = 'time',config_file='con
         network.rename(columns={'geoms': 'geometry'}, inplace=True)
 
         # create the graph
-        G = graph_load(network, ['geometry', 'id', 'RP100_cells_intersect', 'RP100_max_flood_depth',
+        if special_setting == 'DEU_event_vs3':
+            G = graph_load(network,event_based_cols)
+        else:
+            G = graph_load(network, ['geometry', 'id', 'RP100_cells_intersect', 'RP100_max_flood_depth',
                                  'AoI_RP100y_majority', 'AoI_RP100y_unique', 'fds_majority', 'fds__unique'])
 
         # read nodes
@@ -678,27 +731,67 @@ if __name__ == '__main__':
     #countries = ['ALB', 'AUT', 'BEL', 'BGR', 'CHE', 'CZE', 'DEU', 'DNK', 'EST', 'ESP', 'FIN', 'FRA', 'GBR', 'GRC',
     #            'HRV', 'HUN', 'IRL', 'ITA', 'LTU', 'LVA', 'MKD', 'NLD', 'NOR', 'POL', 'PRT', 'ROU', 'SRB', 'SVK','SVN', 'SWE']
 
-    countries = ['NOR']
-    nuts_class = 'nuts3'
-    print(countries)
+    # Single run
+    #optimal_routes('BEL',nuts_class='nuts3',weighing='time',
+    #              config_file='config_sens.json',special_setting='None')
+
 
     #Single run
-    optimal_routes(countries[0],nuts_class=nuts_class,weighing='time',
-                   config_file='config.json',special_setting='Norway_relocate')
+    #optimal_routes('NOR',nuts_class='nuts3',weighing='time',
+    #               config_file='config.json',special_setting='Norway_relocate')
 
     #Multiple runs (sequential)
-
-    for country in countries:
-        try:
-            if country in ['BEL','NLD','GBR','ITA','DEU']:
-                nuts_class = 'nuts2'
-            else:
-                nuts_class = 'nuts3'
-            optimal_routes(country,nuts_class=nuts_class,weighing='time',config_file='config.json',special_setting=None)
-        except Exception as e:
-            print(country,e)
+    # for country in countries:
+    #     try:
+    #         if country in ['BEL','NLD','GBR','ITA','DEU']:
+    #             nuts_class = 'nuts2'
+    #         else:
+    #             nuts_class = 'nuts3'
+    #         optimal_routes(country,nuts_class=nuts_class,weighing='time',config_file='config.json',special_setting=None)
+    #     except Exception as e:
+    #         print(country,e)
 
     #Parallel processing
     #with Pool(4) as pool:
     #    pool.map(optimal_routes, countries, chunksize=1)
 
+
+
+    ########### FUNCTION CALLS FOR SENSITIVITY ANALYSIS
+    ### BELGIUM NUTS-3 INSTEAD OF NUTS-2 AS OD-PAIRS
+    #optimal_routes('BEL', nuts_class='nuts3', weighing='time',
+    #               config_file='config_sens.json', special_setting=None)
+
+    ### BELGIUM NUTS-3; distance instead of time
+    #optimal_routes('BEL', nuts_class='nuts3', weighing='distance',
+    #               config_file='config_sens.json', special_setting=None)
+
+    ### BELGIUM NUTS-3; water depth threshold: only change settings in the main script
+
+    ### BELGIUM NUTS-3; only primary roads - only changed the edge file!
+    #optimal_routes('BEL', nuts_class='nuts3', weighing='time',
+    #               config_file='config_sens.json', special_setting=None)
+
+    ### BELGIUM NUTS-3; shifted_centroids
+    #optimal_routes('BEL', nuts_class='nuts3', weighing='time',
+    #               config_file='config_sens.json', special_setting='shifted_centroids')
+
+    ### BELGIUM NUTS-3; flanders etc. (also replace edge file!)
+    #optimal_routes('BEL', nuts_class='nuts3', weighing='time',
+    #               config_file='config_sens.json', special_setting='Wallonia')
+
+    ### BELGIUM NUTS-3; with buffer (only replace edges file)
+    #optimal_routes('BEL', nuts_class='nuts3', weighing='time',
+    #               config_file='config_sens.json', special_setting=None)
+
+    ### AUSTRIA NUTS-3; with buffer (only replace edges file)
+    #optimal_routes('AUT', nuts_class='nuts3', weighing='time',
+    #               config_file='config_sens.json', special_setting=None)
+
+    ### BENELUX NUTS-3; only replace edges file
+    #optimal_routes('BNX', nuts_class='nuts3', weighing='time',
+    #               config_file='config_sens.json', special_setting='Benelux')
+
+    ########### FUNCTION CALLS FOR SENSITIVITY ANALYSIS
+    optimal_routes('DEU', nuts_class='nuts2', weighing='time',
+                  config_file='config_eventbased_3.json', special_setting='DEU_event_vs3')

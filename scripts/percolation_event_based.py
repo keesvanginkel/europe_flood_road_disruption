@@ -187,6 +187,253 @@ def import_graph_v3(country_code, nuts_class='nuts3', config_file='config.json')
     # print(G.summary())
     return G
 
+
+from percolation_optimized_parallel import common_member, giant_component_analysis, calculate_shortest_paths_matrix
+
+
+### The function below is based on run_percolation_parallel.py -> stochastic_network_analysis_phase2()
+def evaluate_event_3(path_to_event_json,config_file,country_code,nuts_class,G):
+    """
+    Calculate metrics for a single flood event, prescribed in an event json.
+
+    Currently (8/11/2021), these jsons are directly prepared in a notebook, no need to run prep_par
+
+    Arguments:
+        *path_to_event_json* (pathlib path object) : path to json describing the events
+        *config_file* (string) : name of the config file in the main directory
+        *country_code* (string) : 3l country code e.g. 'DEU'
+        *nuts_class* (string) : 'nuts3' or 'nuts2'
+        *G* (iGraph graph) : copy of the undisturbed graph object
+
+    Returns:
+        None
+
+    Effect:
+        write the results of the analysis to a csv file in the folder
+            config['paths']['main_output] / *country name* / finished
+
+    """
+    t0 = time.time()
+
+    #some new settings:
+    removed_to_shape = False #saves the removed edges to config['paths']['main_output] / *country name* / checkpoints
+    new_routes_to_shape = False #save the new routes to shape
+
+    config = load_config(file=config_file)
+    output_folder = config['paths']['main_output']
+
+    #LOAD AND UNPACK DATA FROM JSON FILE
+    with open(path_to_event_json) as f:
+        event = json.load(f)
+    event_data = event['data']
+    year = list(event_data.keys())[0]
+
+    #CHECK IF PROCESS IS ALREADY RUN:
+    country_name = country_names(country_code)
+    result_path = config['paths']['main_output'] / country_name.lower() / 'finished' / '{}.csv'.format(year)
+
+    if result_path.exists():
+        print('{} already finished'.format(year))
+        return None
+
+    #LOAD ORIGINAL OD-MATRIX
+    od_optimal_routes = import_optimal_routes(country_name,nuts_level=nuts_class, config_file=config_file)
+
+
+
+    # initiate result metric variables
+    #df = pd.DataFrame(columns=['year', 'disrupted', 'avg extra time', 'no detour'])
+
+    # initiate variables
+    ser = pd.Series(name=year, #i
+                    index=['year', #'AoI combinations', 'experiment',
+                           'disrupted',
+                           'no detour',
+                           'avg extra time',
+                           'AoI removed',
+                           'OD-disrupted',
+                           'OD-with_detour',
+                           'with_detour_extra_times'],
+                    dtype=object)
+    tot_routes = len(od_optimal_routes.index)
+
+
+    tot_routes = len(od_optimal_routes.index)
+
+
+    all_to_remove = [] #save all to_remove edges here
+    #Iterate over the different basins
+    for basin_flood in event_data[year]['microfloods']:
+        basin_aoi = basin_flood['basin_aoi']
+        return_period = basin_flood['return_period']
+        cell_aois = basin_flood['cell_aois']
+
+        if not isinstance(cell_aois,list):
+            raise TypeError('Unexpected type for cell_aois; should be list  but is:',cell_aois,type(cell_aois))
+
+        if len(cell_aois) == 0:
+            continue
+        else:
+
+            #Select the aoi and flood raster that best represent the flood of this return period
+            aoi_col, depth_col = find_closest_raster(return_period)
+            assert aoi_col in G.es.attributes()
+            assert depth_col in G.es.attributes()
+
+            #Complicated function call to avoid forloop (very slow)
+            # - compare intersect between set of cell aois, with for each edge: the aoi that overlap with that edge
+            # - and also check if the return period of the flood is larger than the flood protection of this edge
+            to_remove = G.es.select(lambda e: (set(cell_aois) & set(e[aoi_col])) and (return_period > e['fds_majority']))
+            xx = len(to_remove)
+            #Addition 12/3/2022: also filter on water depth
+            depth_threshold = 0
+            to_remove = [edge for edge in to_remove if edge[depth_col] >= depth_threshold]
+            yy = len(to_remove)
+            #print('{} per basin extra edges removed when using water depth filter'.format(xx-yy))
+            #print(basin_aoi,len(to_remove))
+
+            all_to_remove.extend(to_remove)
+
+            #save all removed edges in a dataframe to inspect in GIS
+            #Todo fix this
+            if removed_to_shape:
+                df_to_remove = ES_to_df(to_remove)
+                #print(len(df_to_remove))
+                if not 'df_all_removed' in locals(): #first time that edges are removed
+                    df_all_removed = df_to_remove.copy()
+                else:
+                    df_all_removed = df_all_removed.append(df_to_remove)
+
+    all_to_remove = list(set(all_to_remove)) #avoid duplicates between basins
+
+
+
+    # identify the od_optimal_routes that are affected, i.e. they have at least one edge that is to be removed
+    to_remove_indices = [e['id'] for e in all_to_remove]
+    aff = od_optimal_routes['e_ids'].apply(lambda x: common_member(json.loads(x), to_remove_indices))
+    conc = od_optimal_routes[aff]['origin'] + '-' + od_optimal_routes[aff]['destination']
+    affected_OD_pairs = list(conc.values)
+
+
+
+
+    #Todo: fix this functionality
+    if removed_to_shape:
+        check_path = config['paths']['main_output'] / country_name.lower() / 'checkpoints'
+        if not check_path.exists() : check_path.mkdir()
+        gdf = gpd.GeoDataFrame(df_all_removed,crs='EPSG:3035')
+        gdf.to_file((check_path / '{}_removed_edges.shp'.format(year)), sep=';')
+
+        t3b = time.time()
+        #print('Time for saving shapefile with removed edges', t3b - t3)
+        t3 = time.time()
+
+    # if special_setting == 'giant_component':
+    if True:
+        result_gc_path = output_folder / country_name / 'finished_gc'
+        if not result_gc_path.exists():
+            result_gc_path.mkdir(parents=False, exist_ok=True)
+
+        # Calculate reference metrics for undisturbed graph, only in the first iteration
+        file = result_gc_path / 'reference.csv'
+        if not file.exists():
+            #logger.info('calculating refence metrics for giant component analysis, saving to {}'.format(file))
+            edges_in_graph, nodes_in_graph, edges_in_giant, nodes_in_giant = giant_component_analysis(G,
+                                                                                                      mode='strong')
+            d = {'ref_edges_in_graph': edges_in_graph,
+                 # 'ref_nodes_in_graph' : nodes_in_graph, #does not change because we do edge percolation
+                 'ref_edges_in_giant': edges_in_giant}  # ,
+            # 'ref_nodes_in_giant' : nodes_in_giant}
+            result = pd.DataFrame(pd.Series(data=d, name='undisturbed graph')).T
+            result.to_csv(file, sep=';')
+
+    print('All to remove: {}'.format(len(all_to_remove)))
+    G.delete_edges(all_to_remove)
+    print('new length EdgeSequence',len(G.es))
+    x = od_optimal_routes[aff][['o_node', 'd_node']]
+
+    # extra_time = []
+    # disrupted = 0
+    # nr_no_detour = 0
+
+    t3 = time.time()
+    ### SECOND APPROACH TO ROUTE CALCULATION (other versions from usual percolation are not implemented here ###
+    route_algorithm_ = 'version_2'
+    if route_algorithm_ == 'version_2':
+        y_sel = calculate_shortest_paths_matrix(G, x, weighing=weighing)
+        # Todo: weird variable name 'new routes', confusing compared to implementation of other algs.
+        new_routes = od_optimal_routes[aff][['o_node', 'd_node', 'origin', 'destination', weighing]]
+        d = y_sel.unstack(-1).loc[[(row, col) for col, row in zip(new_routes.o_node, new_routes.d_node)]].reset_index()
+        # new_routes['new_time'] = None
+        # Make sure that the lists are not shuffled
+        assert list(zip(d.o_node, d.d_node)) == list(zip(new_routes.o_node, new_routes.d_node))
+        old_times = od_optimal_routes[aff][weighing]
+        new_times = pd.Series(index=old_times.index, data=d[0].values)
+        assert len(old_times) == len(new_times)
+
+        t4 = time.time()
+        print('t3-t4: {} sec passed for calculating new routes, used  algorithm 2'.format(t4 - t3))
+
+    #### Do some general processing of the results to save in usable output metrics ####
+
+    # Split detours from no detours
+    no_detours_mask = new_times == float('inf')  # note, this is a bool mask of only the disrupted routes...
+    od_optimal_routes['no_detours'] = no_detours_mask[no_detours_mask]  # ...while this is the mask of all
+    od_optimal_routes['no_detours'] = od_optimal_routes['no_detours'].fillna(False)
+
+    with_detours_mask = ~no_detours_mask
+    od_optimal_routes['with_detours'] = with_detours_mask[
+        with_detours_mask]  # ...while this is the mask of all
+    od_optimal_routes['with_detours'] = od_optimal_routes['with_detours'].fillna(False)
+    assert aff.sum() == od_optimal_routes['with_detours'].sum() + od_optimal_routes['no_detours'].sum()
+
+    OD_with_detour = list(od_optimal_routes[od_optimal_routes['with_detours']]['origin'] + '-' + \
+                          od_optimal_routes[od_optimal_routes['with_detours']]['destination'])
+
+    extra_time_per_route = new_times - old_times
+
+    ### PREPARE PERCOLATION OUTPUT
+    ser.at['year'] = year
+    ser.at['disrupted'] = len(affected_OD_pairs) / tot_routes * 100
+    if len(extra_time_per_route) == 0:
+        ser.at['avg extra time'] = 0
+    else:
+        ser.at['avg extra time'] = (extra_time_per_route[~no_detours_mask]).mean()
+    #ser.at['AoI removed'] = json.dumps(np.array(aoi).tolist())
+    ser.at['no detour'] = no_detours_mask.sum() / tot_routes * 100
+    ser.at['OD-disrupted'] = json.dumps(affected_OD_pairs)
+    ser.at['OD-with_detour'] = json.dumps(OD_with_detour)
+    ser.at['with_detour_extra_times'] = json.dumps(
+        ['{:.3f}'.format(t) for t in extra_time_per_route[~no_detours_mask]])
+
+    if True:
+        gc_start = time.time()
+        # Calculate the metrics for the Giant Component analysis
+        edges_in_graph, nodes_in_graph, edges_in_giant, nodes_in_giant = giant_component_analysis(G,
+                                                                                                  mode='strong')
+        d = {'edges_in_graph': edges_in_graph,
+             # 'nodes_in_graph': nodes_in_graph, #since we do edge percolation, no need to save these
+             'edges_in_giant': edges_in_giant
+             # 'nodes_in_giant': nodes_in_giant
+             }
+        ser = ser.append(pd.Series(d))
+        gc_end = time.time()
+        print('gc_start - gc end: {} sec for counting giant component edges'.format(gc_end - gc_start))
+
+    # transpose output for backward compat. with version 1.0
+    pd.DataFrame(ser).T.to_csv((result_path), sep=';', header=True, index=False)
+
+    if new_routes_to_shape:
+        check_path = config['paths']['main_output'] / country_name.lower() / 'checkpoints'
+        if not check_path.exists(): check_path.mkdir()
+        gdf = gpd.GeoDataFrame(all_alt_routes, crs='EPSG:3035')
+        gdf.to_file((check_path / '{}_alt_routes.shp'.format(year)), sep=';')
+
+    t5 = time.time()
+    print('Year {} finished, time {}'.format(year,t5-t0))
+
+    return None
+
 ### The function below is based on run_percolation_parallel.py -> stochastic_network_analysis_phase2()
 def evaluate_event(path_to_event_json,config_file,country_code,nuts_class):
     """
