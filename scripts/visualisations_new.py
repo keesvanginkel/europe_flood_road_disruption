@@ -17,7 +17,7 @@ from warnings import warn
 import Europe_utils as eu
 from utils import load_config
 import pdb as pdb
-config_file = 'config-KeesWork.json' #also declared at the top of the file (ugly fix)
+config_file = 'config.json' #also declared at the top of the file (ugly fix)
 config = load_config(config_file)
 
 #Suppress pandas SettingWithCopyWarning
@@ -49,11 +49,12 @@ group_operations = group_operations()
 
 
 # Everything below  is a sort preprocessing step, before the actual plotting starts
-def aggregate_results_step1(ignore = [None],config=None):
+def aggregate_results_step1(select = 'all', ignore = [None],config=None):
     """
     Function to aggregate the raw results of the percolation analysis
     
     Arguments:
+        *select* ('all') or (list of countries) : if not 'all': only analyse these countries
         *ignore* (list of countries) : list of countries that you don't want to analyse e.g. ['denmark','latvia']
         *config* (configuration file) : output of load_config; if not provided, will load default config.json
     Effect:
@@ -68,8 +69,12 @@ def aggregate_results_step1(ignore = [None],config=None):
     print('aggregate_results(): Starting step 1/2:')
     countries_paths = [x for x in country_results_folder.iterdir() if x.is_dir()]
     countries = [x.stem for x in countries_paths]
-    print('Identified {} countries'.format(len(countries)))
-    print('To aggregate: {}'.format(countries))
+    print('Avaible {} countries, namely:'.format(len(countries)))
+    print(countries)
+    if select != 'all':
+        print('To aggregate: {}'.format(select))
+    else:
+        print('To aggregate: {}'.format(countries))
     print('To ignore: {}'.format(ignore))
     while True:
         if input('Do You Want To Continue? Press y to continue.') != 'y':
@@ -78,6 +83,10 @@ def aggregate_results_step1(ignore = [None],config=None):
             if path.stem in ignore:
                 print('ignoring {}'.format(path))
             else:
+                if select != 'all':
+                    if path.stem not in select:
+                        print('{} not selected'.format(path.stem))
+                        continue
                 print('Start aggregating {}'.format(path))
                 finished_folder = path / 'finished'
                 if not finished_folder.exists():
@@ -87,11 +96,12 @@ def aggregate_results_step1(ignore = [None],config=None):
                 combine_finished_stochastic(finished_folder)
                 print('{}: Aggregated raw pickles per experiment, to .csv per # combinations'.format(path.stem))
 
-def aggregate_results_step2(ignore = [None],config=None):
+def aggregate_results_step2(select = 'all',ignore = [None],config=None):
     """
     Function to aggregate the raw results of the percolation analysis
 
     Arguments:
+        *select* ('all') or (list of countries) : if not 'all': only analyse these countries
         *ignore* (list of countries) : list of countries that you don't want to analyse e.g. ['denmark','latvia']
         *config* (configuration file) : output of load_config; if not provided, will load default config.json
     Effect:
@@ -107,10 +117,11 @@ def aggregate_results_step2(ignore = [None],config=None):
     print('Starting step 2:')
     countries_paths = [x for x in country_results_folder.iterdir() if x.is_dir()]
     countries = [x.stem for x in countries_paths if x.stem not in ignore]
-    
-    
-    
+    if select != 'all':
+        countries = [c for c in countries if c in select]
+
     folders = [df_stochastic_results(folder=country_results_folder / c / 'finished') for c in countries]
+
     dict_dfs = dict(zip(countries, folders)) #keys are countries, values dataframes with results
 
     #Step 2b: Summarize the results of all countries
@@ -141,17 +152,27 @@ def combine_finished_stochastic(finished_folder):
     if any([p.suffix == '.csv' for p in finished_folder.iterdir()]):
         raise Exception('This folder already contains .csv files, did you already run this script?')
 
-
     for folder in finished_folder.iterdir():
         if folder.is_dir():
             files = [f for f in folder.iterdir()]
-            df = pd.read_csv(files[0],sep=';',index_col=0)  #avoid empty column
-            df.index = [int(files[0].stem)] #use filename as index
+            df = pd.read_csv(files[0],sep=';')  #avoid empty column
+            #df.index = [int(files[0].stem)] #use filename as index
             for file in files[1:]:
-                df_add = pd.read_csv(file,sep=';',index_col=0)
-                df_add.index = [int(file.stem)]  # use filename as index
+                df_add = pd.read_csv(file,sep=';')
+                #df_add.index = [int(file.stem)]  # use filename as index
                 df = pd.concat([df, df_add], sort='False')
-            df.to_csv(finished_folder / "aoi_{}.csv".format(folder.stem),sep=';')
+
+            columns = list(df.columns)
+
+            column_order = ['AoI combinations','experiment','disrupted','no detour','avg extra time','AoI removed',
+                            'OD-disrupted', 'OD-with_detour', 'with_detour_extra_times']
+            if 'edges_in_giant' in columns:
+                column_order.extend(['edges_in_graph','edges_in_giant'])
+
+            df = df.reindex(columns=column_order)
+            df = df.sort_values(by='experiment')
+            df.to_csv(finished_folder / "aoi_{}.csv".format(folder.stem),sep=';',index=False)
+
 
         print('Combine_finished_stochastic finished for {}'.format(folder))
 
@@ -167,15 +188,16 @@ def df_stochastic_results(folder):
         *df* (DataFrame) : contains the results per #combinations (rows)
 
     """
-    files = [f for f in os.listdir(folder) if (os.path.isfile(os.path.join(folder, f))) and (f.endswith('.csv'))]
+    files = [f for f in folder.iterdir() if (f.suffix == '.csv')]
 
     # load data
-    df = pd.DataFrame(columns=['AoI combinations', 'disrupted', 'avg extra time', 'AoI removed', 'no detour'])
-    for f in files:
-        df_new = pd.read_csv(os.path.join(folder, f),sep=';',index_col=0)
+    df = pd.read_csv(files[0],sep=';')
+    for f in files[1:]:
+        df_new = pd.read_csv(os.path.join(folder, f),sep=';')
         df = pd.concat([df, df_new], sort=False) #ignore_index=True
 
     df['AoI combinations'] = df['AoI combinations'].astype(int)
+    df = df.sort_values(by=['AoI combinations','experiment'])
     return df
 
 ######################################## SOME MAIN FUNCTIONALITY NEEDED FOR MANY VISUALISATIONS ##########################
@@ -339,113 +361,158 @@ def process_extra_time(df):
     extra_time_abs = df.groupby(['AoI combinations', 'country'])['avg extra time'].agg(group_operations).reset_index()
     extra_time_rel = df.groupby(['AoI relative combinations', 'country'])['avg extra time'].agg(group_operations).reset_index()
 
-    print(' -------- Process_extra_time() finished --------')
+    print(' -------- pocess_extra_time() finished --------')
     return(extra_time_abs,extra_time_rel)
 
-def calc_total_extra_time(df,countries=[],N2=[]):
+def calculate_total_extra_time(df):
     """
     Calculates the total extra travel over the time of the network
-    Note that that routes for with no detour do not contribute to total travel time
+    Note that that routes with no detour do not contribute to total travel time
 
     Arguments:
         *df* (DataFrame) : raw percolation output, the output of main()
-        *countries* (string or list of strings) : list with full country names, if not provided: will do all countries
-        *N2* (list of strings) : list of country N0 codes: countries for which analysis is run on N2 instead of N3
-
-    Return:
-         *df_totaltraveltime* (DataFrame) : raw df with extra columns 'nodetour_routes',
-                                            'disrupted_routes', 'sum_extra_travel_time'
-
-    """
-    print('Starting total extra travel time calculation, calc_total_extra_time()')
-    if isinstance(countries,str):
-        countries = [countries]
-
-    from Europe_utils import country_code_from_name
-    from math import isclose
-    analysis_file = config['paths']['data'] / 'Overview_analysis_2021_5_5.xls'
-    file = pd.read_excel(analysis_file,skiprows=0,index_col=1,header=1)
-    routes = file[['N2_nr_routes','N3_nr_routes']]
-    ### TODO: READING THE THEORETIC NUMBER OF ROUTES IS NOT ALWAYS GOOD, THERE ARE DISCPRECANCIES WITH ACTUAL ROUTES
-
-    #Add empty columns
-    cols = ['nodetour_routes','disrupted_routes','sum_extra_travel_time']
-    for col in cols:
-        df[col] = None
-        df[col] = df[col].apply(pd.to_numeric)
-
-    Warnings = [] #countries for which a warning needs to be raised
-
-    #Handle per country
-    if len(countries) == 0:
-        ac = df.country.unique()  # available countries
-    else:
-        ac = countries
-    for country in ac:
-        c = country_code_from_name(country)
-
-        df_sel = df.loc[df['country']==country]
-        df = df.loc[df['country']!=country] #remainder
-
-        actual_nr_routes = check_actual_routes() #Todo: dirty fix to enable dashboard because this is not run outside the __main__
-
-        if not c in N2: #calculatoin on NUTS-3
-            #nr_routes = routes.at[c,'N3_nr_routes'] #depreciated, beter to derive from the preproc results
-            nr_routes = actual_nr_routes[c]
-        elif c in N2: #calculation on NUTS-2
-            #nr_routes = routes.at[c, 'N2_nr_routes']
-            nr_routes = actual_nr_routes[c]
-
-        print(country,c,nr_routes)
-        df_sel['disrupted_routes'] = df_sel['disrupted'] * nr_routes / 100
-        #pdb.set_trace()
-        are_close = [isclose(n_routes, round(n_routes), abs_tol=0.0001) for
-                     n_routes in df_sel['disrupted_routes'].unique()]
-        if False in are_close: #If any of the value is not close to an integer
-            #multiplication % with number of routes should result in whole number
-            Warnings.append(country)
-
-        df_sel['nodetour_routes'] = df_sel['no detour'] * nr_routes / 100
-
-        df_sel['sum_extra_travel_time'] = \
-            df_sel['avg extra time'] * (df_sel['disrupted_routes'] - df_sel['nodetour_routes'])
-        df = df.append(df_sel)
-
-    df_totaltraveltime = df.loc[df['country'].isin(ac)]
-    print('calc_total_extra_time() finished!')
-    if not len(Warnings) == 0:
-        warn("""Absolute number of disrupted routes containes an unexpected value for 
-                    {} or
-                    {}
-                    maybe you choose the wrong NUTS-level (can be N3 or N2) or
-                    maybe some route combinations were not sampled
-                    """.format(Warnings,[country_code_from_name(country) for country in Warnings]))
-
-    return df_totaltraveltime
-
-def process_total_extra_time(df):
-    """
-    Further processes the output of calc_total_extra_time
-    #Todo: precisely describe what comes out of this function
-     - in: per country, per unqiue aoi-comb; the total extra travel time over the network (excluding the no_detour trips
-           that cannot take place, because O/D are not longer connected)
-     - We aggregate by nr of aoI combinatoins, and calculate summary statistics; in a relative and absolute way
-        (compared to #aois)
-
-    Arguments:
-        *df* (DataFrame) : df_totaltraveltime, output of calc_total_extra_time
 
     Returns:
-        *total_extra_time_abs* (DataFrame) : results grouped by combi of absolute AOI AND country
-        *total_extra_time_rel* (DataFrame) : results grouped by combi of relative AOI and country
+        df_totaltraveltime* (DataFrame) : raw df with extra columns 'sum_extra_travel_time'
+    """
+    import json
+    print('Starting total extra travel time calculation, calc_total_extra_time()')
+    df_out = df.copy()
+    df_out['with_detour_extra_times'] = df_out['with_detour_extra_times'].apply(lambda x: json.loads(x))
+    df_out['with_detour_extra_times'] = df_out['with_detour_extra_times'].apply(lambda x: [float(y) for y in x ])
+    df_out['sum_extra_travel_time'] = df_out['with_detour_extra_times'].apply(lambda x: sum(x))
+    df_totaltraveltime = df_out
+    print(' -------- calculate_total_extra_time() finished --------')
+    return df_totaltraveltime
+
+def process_total_extra_time(df_totaltraveltime):
+    """
+    Further processes the output of calculate_total_extra_time(), to prepare for plotting lineplots
+    Merges the many samples per #AoIs to one metric per #AoIs
+
+    total extra time is the sum (of all NUTS-pairs) additional travel time of disrupted OD-pairs that still have a detour
+
+    Arguments:
+        *df_totaltraveltime * (DataFrame) : the output of calculate_total_extra_time()
+
+    Returns:
+        *extra_time_abs* (DataFrame) : results grouped by combi of absolute AOI AND country
+        *extra_time_rel* (DataFrame) : results grouped by combi of relative AOI and country
         """
     # Groups unique combinations of #AoI combination and country
     #group_operations = group_operations()
-    total_extra_time_abs = df.groupby(['AoI combinations', 'country'])['sum_extra_travel_time'].agg(group_operations).reset_index()
-    total_extra_time_rel = df.groupby(['AoI relative combinations', 'country'])['sum_extra_travel_time'].agg(group_operations).reset_index()
+    sum_extra_time_abs = df_totaltraveltime.groupby(['AoI combinations', 'country'])['sum_extra_travel_time'].agg(group_operations).reset_index()
+    sum_extra_time_rel = df_totaltraveltime.groupby(['AoI relative combinations', 'country'])['sum_extra_travel_time'].agg(group_operations).reset_index()
 
-    print(' -------- Process_total_extra_time() finished --------')
-    return(total_extra_time_abs,total_extra_time_rel)
+    print(' -------- pocess_extra_time() finished --------')
+    return(sum_extra_time_abs,sum_extra_time_rel)
+
+
+# ######################### There are issues with the below function ################################
+# def calc_total_extra_time(df,countries=[],N2=[]):
+#     """
+#     Calculates the total extra travel over the time of the network
+#     Note that that routes with no detour do not contribute to total travel time
+#
+#     Arguments:
+#         *df* (DataFrame) : raw percolation output, the output of main()
+#         *countries* (string or list of strings) : list with full country names, if not provided: will do all countries
+#         *N2* (list of strings) : list of country N0 codes: countries for which analysis is run on N2 instead of N3
+#
+#     Return:
+#          *df_totaltraveltime* (DataFrame) : raw df with extra columns 'nodetour_routes',
+#                                             'disrupted_routes', 'sum_extra_travel_time'
+#
+#     """
+#     print('Starting total extra travel time calculation, calc_total_extra_time()')
+#     if isinstance(countries,str):
+#         countries = [countries]
+#
+#     from Europe_utils import country_code_from_name
+#     from math import isclose
+#     analysis_file = config['paths']['data'] / 'Overview_analysis_2021_5_5.xls'
+#     file = pd.read_excel(analysis_file,skiprows=0,index_col=1,header=1)
+#     routes = file[['N2_nr_routes','N3_nr_routes']]
+#     ### TODO: READING THE THEORETIC NUMBER OF ROUTES IS NOT ALWAYS GOOD, THERE ARE DISCPRECANCIES WITH ACTUAL ROUTES
+#
+#     #Add empty columns
+#     cols = ['nodetour_routes','disrupted_routes','sum_extra_travel_time']
+#     for col in cols:
+#         df[col] = None
+#         df[col] = df[col].apply(pd.to_numeric)
+#
+#     Warnings = [] #countries for which a warning needs to be raised
+#
+#     #Handle per country
+#     if len(countries) == 0:
+#         ac = df.country.unique()  # available countries
+#     else:
+#         ac = countries
+#     for country in ac:
+#         c = country_code_from_name(country)
+#
+#         df_sel = df.loc[df['country']==country]
+#         df = df.loc[df['country']!=country] #remainder
+#
+#         actual_nr_routes = check_actual_routes() #Todo: dirty fix to enable dashboard because this is not run outside the __main__
+#
+#         if not c in N2: #calculatoin on NUTS-3
+#             #nr_routes = routes.at[c,'N3_nr_routes'] #depreciated, beter to derive from the preproc results
+#             nr_routes = actual_nr_routes[c]
+#         elif c in N2: #calculation on NUTS-2
+#             #nr_routes = routes.at[c, 'N2_nr_routes']
+#             nr_routes = actual_nr_routes[c]
+#
+#         print(country,c,nr_routes)
+#         df_sel['disrupted_routes'] = df_sel['disrupted'] * nr_routes / 100
+#         #pdb.set_trace()
+#         are_close = [isclose(n_routes, round(n_routes), abs_tol=0.0001) for
+#                      n_routes in df_sel['disrupted_routes'].unique()]
+#         if False in are_close: #If any of the value is not close to an integer
+#             #multiplication % with number of routes should result in whole number
+#             Warnings.append(country)
+#
+#         df_sel['nodetour_routes'] = df_sel['no detour'] * nr_routes / 100
+#
+#         df_sel['sum_extra_travel_time'] = \
+#             df_sel['avg extra time'] * (df_sel['disrupted_routes'] - df_sel['nodetour_routes'])
+#         df = df.append(df_sel)
+#
+#     df_totaltraveltime = df.loc[df['country'].isin(ac)]
+#     print('calc_total_extra_time() finished!')
+#     if not len(Warnings) == 0:
+#         warn("""Absolute number of disrupted routes containes an unexpected value for
+#                     {} or
+#                     {}
+#                     maybe you choose the wrong NUTS-level (can be N3 or N2) or
+#                     maybe some route combinations were not sampled
+#                     """.format(Warnings,[country_code_from_name(country) for country in Warnings]))
+#
+#     return df_totaltraveltime
+#
+# def process_total_extra_time(df):
+#     """
+#     Further processes the output of calc_total_extra_time
+#     #Todo: precisely describe what comes out of this function
+#      - in: per country, per unqiue aoi-comb; the total extra travel time over the network (excluding the no_detour trips
+#            that cannot take place, because O/D are not longer connected)
+#      - We aggregate by nr of aoI combinatoins, and calculate summary statistics; in a relative and absolute way
+#         (compared to #aois)
+#
+#     Arguments:
+#         *df* (DataFrame) : df_totaltraveltime, output of calc_total_extra_time
+#
+#     Returns:
+#         *total_extra_time_abs* (DataFrame) : results grouped by combi of absolute AOI AND country
+#         *total_extra_time_rel* (DataFrame) : results grouped by combi of relative AOI and country
+#         """
+#     # Groups unique combinations of #AoI combination and country
+#     #group_operations = group_operations()
+#     total_extra_time_abs = df.groupby(['AoI combinations', 'country'])['sum_extra_travel_time'].agg(group_operations).reset_index()
+#     total_extra_time_rel = df.groupby(['AoI relative combinations', 'country'])['sum_extra_travel_time'].agg(group_operations).reset_index()
+#
+#     print(' -------- Process_total_extra_time() finished --------')
+#     return(total_extra_time_abs,total_extra_time_rel)
 
 def percolation_summary(df):
     """
@@ -784,7 +851,7 @@ def no_detour_aggregated_lineplot(no_dt_, countries, fill_between=('min', 'max')
 
     return fig, ax
 
-def extra_time_boxplot(df,country,unit='sec',save=False,fig=None, ax=None,**kwargs):
+def extra_time_boxplot(df,country,unit='hr',save=False,fig=None, ax=None,**kwargs):
     """
     Creates boxplot of average (of all detour times) additional detour time per # AoIs
 
@@ -792,7 +859,7 @@ def extra_time_boxplot(df,country,unit='sec',save=False,fig=None, ax=None,**kwar
 
     Arguments:
         *df* (DataFrame) : raw model results
-        *unit* (string) : unit of the results, can be 'sec', 'min' or 'hr'
+        *unit* (string) : unit of the desired output results, can be 'sec', 'min' or 'hr'
         *country* (string) : Country name e.g. 'Albania'
         *save* (boolean) : should the file be saved in the folder config['paths']['output_images']
         *fig,ax* (matplotlib) : fig and ax to add the figure to; make new if not provided
@@ -805,12 +872,12 @@ def extra_time_boxplot(df,country,unit='sec',save=False,fig=None, ax=None,**kwar
     #Todo: check units; this currently does not work
     df = df.loc[df['country'] == country]
 
-    df['extra_time_min'] = df['avg extra time'] / 60
-    df['extra_time_hr'] = df['extra_time_min'] / 60
+    df['extra_time_min'] = df['avg extra time'] * 60
+    df['extra_time_sec'] = df['extra_time_min'] * 60
 
-    if unit == 'sec': col='avg extra time'
+    if unit == 'hr': col='avg extra time' #the input units are in hr
     elif unit == 'min' : col='extra_time_min'
-    elif unit == 'hr' : col = 'extra_time_hr'
+    elif unit == 'sec' : col = 'extra_time_sec'
     else: raise ValueError("Unit must be 'sec','min' or 'hr' ")
 
     if (fig == None and ax == None):  # if No axes and no figure is provided
@@ -887,63 +954,63 @@ def extra_time_aggregated_lineplot(extra_time_, countries, fill_between=('min', 
 
     return fig, ax
 
-def total_extra_time_aggregated_lineplot(extra_time_, countries, fill_between=('min', 'max'), save=False, fig=None, ax=None,clrs='default'):
-    """
-    Creates an aggregateted lineplot of total extra time per disruption in an aggregated lineplot
-    (Function is almost the same as aggregated_lineplot)
-
-    Arguments:
-        *extra_time_* (DataFrame) : contains the aggregated results, either relative (extra_time_rel) or absolute (extra_time_abs)
-        *countries* (list) : list of strings with names of countries to plot
-        *fill_between* (tuple) : indicates which percentiles to feel between
-        *save* (Boolean) : should the file be saved in the folder config['paths']['output_images']
-
-    Returns:
-        fig,ax
-    """
-    # assert fill_between in cols.
-
-    #FIRST DETERMINE IF RELATIVE OR ABSOLUTE RESULTS WERE PROVIDED
-    if 'AoI relative combinations' in extra_time_.columns:  # INDICATES THAT THESE ARE RELATIVE RESULTS
-        grouper = 'AoI relative combinations'
-        xlabel = "% of combinations of micro-floods (AoI's) of the maximum number of micro-floods per country"
-        relative = True  # needed for plotting
-
-    elif 'AoI combinations' in extra_time_.columns:  # ABSOLUTE RESULTS
-        grouper = 'AoI combinations'
-        xlabel = "Number of combinations of micro-floods (AoI's)"
-        relative = False
-
-    if (fig == None and ax == None):  # if No axes and no figure is provided
-        fig, ax = plt.subplots(figsize=(8, 6))
-
-    if clrs == 'default':
-        clrs = ['darkblue', 'red', 'green', 'purple', 'orange', 'skyblue']
-
-    lines = extra_time_
-    for cntry, cl in zip(countries, clrs):
-        c = cntry.capitalize()
-        ax.plot(lines.loc[lines['country'] == c, grouper], lines.loc[lines['country'] == c, 'mean'],
-                color=cl, label=c)
-        ax.fill_between(lines.loc[lines['country'] == c, grouper], lines.loc[lines['country'] == c, fill_between[0]],
-                        lines.loc[lines['country'] == c, fill_between[1]], alpha=0.3, edgecolor=cl, facecolor=cl,
-                        linewidth=0)
-    ax.legend()
-    ax.set_ylabel("Average extra travel time")
-    ax.set_xlabel(xlabel)
-
-
-    if save:  # TODO REPLACE ALL INSTANCES OF THIS PART OF CODE WITH A SPECIAL FUNCTION
-        save_figs = load_config(config_file)['paths']['output_images'] / 'total_extra_time_line'
-        if not save_figs.exists(): save_figs.mkdir()
-        filename = "total_extra_time_aggregateline_{}_{}.png".format('-'.join(countries),
-                                                                     fill_between[0] + '-' + fill_between[1])
-        if relative: filename = "total_extra_time_aggregateline_{}_{}_relative.png".format( \
-            '-'.join(countries), fill_between[0] + '-' + fill_between[1])
-        fig.savefig(save_figs / filename)
-
-    return fig, ax
-
+# def total_extra_time_aggregated_lineplot(extra_time_, countries, fill_between=('min', 'max'), save=False, fig=None, ax=None,clrs='default'):
+#     """
+#     Creates an aggregateted lineplot of total extra time per disruption in an aggregated lineplot
+#     (Function is almost the same as aggregated_lineplot)
+#
+#     Arguments:
+#         *extra_time_* (DataFrame) : contains the aggregated results, either relative (extra_time_rel) or absolute (extra_time_abs)
+#         *countries* (list) : list of strings with names of countries to plot
+#         *fill_between* (tuple) : indicates which percentiles to feel between
+#         *save* (Boolean) : should the file be saved in the folder config['paths']['output_images']
+#
+#     Returns:
+#         fig,ax
+#     """
+#     # assert fill_between in cols.
+#
+#     #FIRST DETERMINE IF RELATIVE OR ABSOLUTE RESULTS WERE PROVIDED
+#     if 'AoI relative combinations' in extra_time_.columns:  # INDICATES THAT THESE ARE RELATIVE RESULTS
+#         grouper = 'AoI relative combinations'
+#         xlabel = "% of combinations of micro-floods (AoI's) of the maximum number of micro-floods per country"
+#         relative = True  # needed for plotting
+#
+#     elif 'AoI combinations' in extra_time_.columns:  # ABSOLUTE RESULTS
+#         grouper = 'AoI combinations'
+#         xlabel = "Number of combinations of micro-floods (AoI's)"
+#         relative = False
+#
+#     if (fig == None and ax == None):  # if No axes and no figure is provided
+#         fig, ax = plt.subplots(figsize=(8, 6))
+#
+#     if clrs == 'default':
+#         clrs = ['darkblue', 'red', 'green', 'purple', 'orange', 'skyblue']
+#
+#     lines = extra_time_
+#     for cntry, cl in zip(countries, clrs):
+#         c = cntry.capitalize()
+#         ax.plot(lines.loc[lines['country'] == c, grouper], lines.loc[lines['country'] == c, 'mean'],
+#                 color=cl, label=c)
+#         ax.fill_between(lines.loc[lines['country'] == c, grouper], lines.loc[lines['country'] == c, fill_between[0]],
+#                         lines.loc[lines['country'] == c, fill_between[1]], alpha=0.3, edgecolor=cl, facecolor=cl,
+#                         linewidth=0)
+#     ax.legend()
+#     ax.set_ylabel("Average extra travel time")
+#     ax.set_xlabel(xlabel)
+#
+#
+#     if save:  # TODO REPLACE ALL INSTANCES OF THIS PART OF CODE WITH A SPECIAL FUNCTION
+#         save_figs = load_config(config_file)['paths']['output_images'] / 'total_extra_time_line'
+#         if not save_figs.exists(): save_figs.mkdir()
+#         filename = "total_extra_time_aggregateline_{}_{}.png".format('-'.join(countries),
+#                                                                      fill_between[0] + '-' + fill_between[1])
+#         if relative: filename = "total_extra_time_aggregateline_{}_{}_relative.png".format( \
+#             '-'.join(countries), fill_between[0] + '-' + fill_between[1])
+#         fig.savefig(save_figs / filename)
+#
+#     return fig, ax
+#
 def check_actual_routes():
     """"Compares the number of routes in the results excel and the actual routes
 
@@ -1005,7 +1072,7 @@ def check_actual_routes():
 if __name__ == '__main__':
 
     #Load configuration file
-    config_file = 'config-KeesWork.json' #also declared at the top of the file (ugly fix)
+    config_file = 'config.json' #also declared at the top of the file (ugly fix)
     config = load_config(config_file)
 
     #Derive how actual preferred routes were calculated in the preprocessing
@@ -1018,7 +1085,7 @@ if __name__ == '__main__':
 
     #plotly_plot(df,['Albania','Austria','Belgium'])
 
-    #boxplot_one_country(df, 'Albania')
+    boxplot_one_country(df, 'Netherlands',save=True)
 
     #Sort countries by nr of AoIs
     max_aoi_comb = df.groupby('country')["AoI combinations"].max().to_dict()
@@ -1034,7 +1101,6 @@ if __name__ == '__main__':
 
     #Group by country area
     #Load second group version
-    print('tot hier')
     import json
     group_file = config['paths']['data'] / 'groups' / '6groupsof6_byactivesize.json'
     with open(group_file, 'rb') as f:
@@ -1060,6 +1126,8 @@ if __name__ == '__main__':
 
     ### PROCESS NO DETOUR RESULTS ###
     no_dt_abs, no_dt_rel = process_no_detour(df)
+    no_detour_boxplot(df, 'Netherlands', True)
+    extra_time_boxplot(df, 'Hungary',unit='sec', save=False)
     #Example of no detour results plotting
     #no_detour_aggregated_lineplot(no_dt_rel, ['Germany', 'France'])
     #for countries in groups_version1:
@@ -1072,21 +1140,21 @@ if __name__ == '__main__':
 
     ### START EXTRA TIME VISUALISATIONS ###
     # plot as boxplot - avg extra time
-    #for country in ac:
-    #    extra_time_boxplot(df, country, save=True)
+    for country in ac:
+        extra_time_boxplot(df, country, unit='hr', save=True)
 
     #extra_time_abs,extra_time_rel = process_extra_time(df)
     #for countries in groups_version1:
     #you can change the df_rel and df_abs here; and the fill_between=('q_25','q_75') or ('min','max')
         #extra_time_aggregated_lineplot(extra_time_abs,fill_between=fill_between, countries=countries,save=True)
 
-    ### START AGGREGATED EXTRA TIME VISUALISATIONS ###
-    countries = groups_version1[-1]
-    NUTS2_analysis = ['DE', 'BE', 'NL'] #countries run on N2 instead of N3
-    for countries in groups_version1: #process results per group of countries
-        df_totaltraveltime = calc_total_extra_time(df,countries=countries,N2=NUTS2_analysis)
-        total_extra_time_abs, total_extra_time_rel = process_total_extra_time(df_totaltraveltime)
-        total_extra_time_aggregated_lineplot(total_extra_time_abs,countries,fill_between=fill_between,save=True)
+    ### START AGGREGATED EXTRA TIME VISUALISATIONS - DEPRECIATED ###
+    #countries = groups_version1[-1]
+    # NUTS2_analysis =  ['BE','NL','DE','UK','IT'] #countries run on N2 instead of N3
+    # for group in groups.values():
+    #     print(group)
+    #     countries_in_group = eu.country_names(group)
+    #     calc_total_extra_time(df, countries=countries_in_group, N2=NUTS2_analysis)
 
 
     print('end of script')

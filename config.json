@@ -4,8 +4,9 @@
 	"output_data" : "D:\\Python\\europe_flood_road_disruption\\data\\output",
 	"output_images" : "D:\\Python\\europe_flood_road_disruption\\visualisations",
 	"NUTS_shapes" : "D:\\Europe_trade_disruptions\\NUTS-2_shapes\\NUTS_2016",
-	"graphs_folder" : "D:\\Europe_percolation\\frederiques_networks",
-    "preproc_output" : "D:\\Europe_percolation\\combined_results\\combined_preproc_output",
-	"main_output" : "D:\\Europe_percolation\\combined_results\\combined_main_output"
+	"graphs_folder" : "D:\\Europe_percolation\\trails_networks",
+    "preproc_output" : "D:\\Europe_percolation\\preproc_output",
+	"main_output" : "D:\\Europe_percolation\\main_output",
+	"logs" : "D:\\Python\\europe_flood_road_disruption\\logs"
   }
 	}
